@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const C = {
   bg:"#08090f", surface:"#0d1120", border:"#1a2540", muted:"#2a3a55",
@@ -10,8 +10,8 @@ function hexRgb(hex){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,
 function scoreColor(p){return p>=80?C.green:p>=65?C.orange:C.red;}
 function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 const SK="netplus-v2";
-async function loadSave(){try{const r=await window.storage.get(SK);if(r?.value)return JSON.parse(r.value);}catch{}return{};}
-async function writeSave(d){try{await window.storage.set(SK,JSON.stringify(d));}catch{}}
+async function loadSave(){try{if(window.storage){const r=await window.storage.get(SK);if(r?.value)return JSON.parse(r.value);}else{const r=localStorage.getItem(SK);if(r)return JSON.parse(r);}}catch{}return{};}
+async function writeSave(d){try{if(window.storage)await window.storage.set(SK,JSON.stringify(d));else localStorage.setItem(SK,JSON.stringify(d));}catch{}}
 
 const FLASHCARD_DOMAINS=[
   {id:"fc1",name:"OSI & TCP/IP Models",color:C.d1,icon:"🧱",cards:[
@@ -177,12 +177,44 @@ function buildDeck(domainId,save){
   return fd?fd.cards.map(c=>({...c,deckColor:fd.color,deckName:fd.name,deckId:fd.id})):[];
 }
 
+function Celebration(){
+  const items=Array.from({length:28},(_,i)=>({
+    left:`${(i*37+7)%100}%`,
+    delay:`${((i*0.13)%0.9).toFixed(2)}s`,
+    dur:`${(1.1+(i%5)*0.18).toFixed(2)}s`,
+    color:[C.green,C.gold,C.d1,C.d3,C.purple,C.d2,C.d5][i%7],
+    size:5+(i%5),
+  }));
+  return(
+    <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,pointerEvents:"none",zIndex:50,overflow:"hidden"}}>
+      <style>{`@keyframes floatUp{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(-110vh) rotate(720deg);opacity:0}}`}</style>
+      {items.map((p,i)=>(
+        <div key={i} style={{position:"absolute",top:"-10px",left:p.left,width:p.size,height:p.size,borderRadius:"50%",background:p.color,animation:`floatUp ${p.dur} ${p.delay} ease-in forwards`}}/>
+      ))}
+    </div>
+  );
+}
+
 export default function App(){
   const [save,setSave]=useState(null);
   const [screen,setScreen]=useState("home");
   const [quizState,setQuizState]=useState(null);
   const [fcState,setFcState]=useState(null);
-  useEffect(()=>{loadSave().then(s=>setSave(s||{}));},[]);
+  useEffect(()=>{
+    loadSave().then(s=>{
+      const data=s||{};
+      const today=new Date().toISOString().slice(0,10);
+      const yesterday=new Date(Date.now()-86400000).toISOString().slice(0,10);
+      const last=data.lastActive;
+      let streak=data.streak||0;
+      if(last===today){}
+      else if(last===yesterday)streak++;
+      else streak=1;
+      const updated={...data,streak,lastActive:today};
+      setSave(updated);
+      writeSave(updated);
+    });
+  },[]);
   async function updateSave(patch){const next={...save,...patch};setSave(next);await writeSave(next);}
   if(save===null) return <div style={{...S.app,display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:C.dim,letterSpacing:3,fontSize:12}}>LOADING...</div></div>;
   const dp=save.domainProgress||{};
@@ -216,6 +248,11 @@ function HomeScreen({save,dp,practiceUnlocked,setScreen,setQuizState,setFcState}
         <div style={{fontSize:10,color:C.dim,letterSpacing:3}}>PROFESSOR MESSER ALIGNED &bull; ALL 5 DOMAINS</div>
       </div>
       <div style={S.divider}/>
+      {save.streak>0&&<div style={{textAlign:"center",marginBottom:18}}>
+        <div style={{fontSize:28}}>🔥</div>
+        <div style={{fontSize:16,fontWeight:"bold",color:C.gold,letterSpacing:3}}>{save.streak} DAY STREAK</div>
+        <div style={{fontSize:10,color:C.dim,letterSpacing:2,marginTop:2}}>{save.streak===1?"COME BACK TOMORROW TO BUILD IT":"KEEP IT GOING"}</div>
+      </div>}
       {attempts.length>0&&(
         <div style={{...S.card(),marginBottom:16}}>
           <div style={S.label()}>Overall Readiness</div>
@@ -297,7 +334,7 @@ function FlashcardHome({save,updateSave,setFcState,setScreen}){
 }
 
 function FlashcardFlip({fcState,setScreen,save,updateSave}){
-  const [deck]=useState(()=>buildDeck(fcState?.domainId||"all",save));
+  const [deck,setDeck]=useState(()=>buildDeck(fcState?.domainId||"all",save));
   const [idx,setIdx]=useState(0);
   const [flipped,setFlipped]=useState(false);
   const [showAcronym,setShowAcronym]=useState(false);
@@ -309,13 +346,27 @@ function FlashcardFlip({fcState,setScreen,save,updateSave}){
   const isStarred=starred.includes(card.term);
   function nav(dir){setIdx(i=>Math.max(0,Math.min(deck.length-1,i+dir)));setFlipped(false);setShowAcronym(false);setShowAnalogy(false);}
   async function toggleStar(){await updateSave({starredCards:isStarred?starred.filter(s=>s!==card.term):[...starred,card.term]});}
+  function shuffleDeck(){setDeck(d=>shuffle([...d]));setIdx(0);setFlipped(false);setShowAcronym(false);setShowAnalogy(false);}
+  useEffect(()=>{
+    function onKey(e){
+      if(e.target.tagName==="INPUT")return;
+      if(e.key===" "||e.key==="Enter"){e.preventDefault();setFlipped(f=>!f);}
+      if(e.key==="ArrowRight"||e.key==="ArrowDown"){e.preventDefault();setIdx(i=>Math.min(deck.length-1,i+1));setFlipped(false);setShowAcronym(false);setShowAnalogy(false);}
+      if(e.key==="ArrowLeft"||e.key==="ArrowUp"){e.preventDefault();setIdx(i=>Math.max(0,i-1));setFlipped(false);setShowAcronym(false);setShowAnalogy(false);}
+    }
+    window.addEventListener("keydown",onKey);
+    return()=>window.removeEventListener("keydown",onKey);
+  },[deck.length]);
   return(
     <div style={S.app}><div style={S.scan}/>
     <div style={S.wrap}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
         <BackBtn onClick={()=>setScreen("flashcards")} color={C.purple}/>
         <div style={{fontSize:11,color:C.dim,letterSpacing:2}}>{idx+1} / {deck.length}</div>
-        <button onClick={toggleStar} style={{...S.btn(isStarred?C.gold:C.muted,isStarred),padding:"5px 12px",fontSize:13}}>{isStarred?"★":"☆"}</button>
+        <div style={{display:"flex",gap:6}}>
+          <button onClick={shuffleDeck} title="Shuffle deck" style={{...S.btn(C.d5),padding:"5px 12px",fontSize:13}}>⇄</button>
+          <button onClick={toggleStar} style={{...S.btn(isStarred?C.gold:C.muted,isStarred),padding:"5px 12px",fontSize:13}}>{isStarred?"★":"☆"}</button>
+        </div>
       </div>
       <div style={{height:3,background:C.border,borderRadius:2,marginBottom:20,overflow:"hidden"}}>
         <div style={{height:"100%",width:`${Math.round(((idx+1)/deck.length)*100)}%`,background:color,transition:"width 0.3s"}}/>
@@ -342,6 +393,7 @@ function FlashcardFlip({fcState,setScreen,save,updateSave}){
           {showAnalogy&&<div style={{padding:"12px 14px",background:`rgba(${hexRgb(color)},0.06)`,border:`1px solid ${color}`,borderTop:"none",borderRadius:"0 0 6px 6px",fontSize:12,color:C.text,lineHeight:1.8}}>{card.analogy}</div>}
         </div>}
       </div>}
+      <div style={{fontSize:10,color:C.muted,letterSpacing:1,textAlign:"center",margin:"8px 0 4px"}}>Space flip &nbsp;·&nbsp; ← → navigate &nbsp;·&nbsp; ⇄ shuffle</div>
       <div style={S.row}>
         <button onClick={()=>nav(-1)} disabled={idx===0} style={{...S.btn(color),flex:1,opacity:idx===0?0.3:1}}>← PREV</button>
         <button onClick={()=>nav(1)} disabled={idx===deck.length-1} style={{...S.btn(color,true),flex:1,opacity:idx===deck.length-1?0.3:1}}>NEXT →</button>
@@ -395,6 +447,20 @@ function FlashcardDrill({fcState,setScreen,save}){
     if(idx+1>=deck.length){setDone(true);}
     else{setIdx(i=>i+1);setRevealed(false);}
   }
+  const gradeRef=useRef();
+  gradeRef.current=grade;
+  useEffect(()=>{
+    function onKey(e){
+      if(e.target.tagName==="INPUT")return;
+      if(!revealed){if(e.key===" "||e.key==="Enter"){e.preventDefault();setRevealed(true);}}
+      else{
+        if(e.key==="ArrowRight"||e.key==="g"||e.key==="G")gradeRef.current("got");
+        if(e.key==="ArrowLeft"||e.key==="m"||e.key==="M")gradeRef.current("missed");
+      }
+    }
+    window.addEventListener("keydown",onKey);
+    return()=>window.removeEventListener("keydown",onKey);
+  },[revealed]);
   return(
     <div style={S.app}><div style={S.scan}/>
     <div style={S.wrap}>
@@ -415,8 +481,10 @@ function FlashcardDrill({fcState,setScreen,save}){
         <div style={{fontSize:18,fontWeight:"bold",color:C.text,lineHeight:1.5}}>{card.term}</div>
       </div>
       {!revealed
-        ?<button onClick={()=>setRevealed(true)} style={{...S.btn(color,true),width:"100%",padding:"13px",fontSize:12}}>REVEAL ANSWER</button>
+        ?<><button onClick={()=>setRevealed(true)} style={{...S.btn(color,true),width:"100%",padding:"13px",fontSize:12}}>REVEAL ANSWER</button>
+          <div style={{fontSize:10,color:C.muted,letterSpacing:1,textAlign:"center",marginTop:8}}>Space / Enter to reveal</div></>
         :<div>
+          <div style={{fontSize:10,color:C.muted,letterSpacing:1,textAlign:"center",marginBottom:8}}>← M missed &nbsp;·&nbsp; G → got it</div>
           <div style={{border:`1px solid ${color}`,borderRadius:12,padding:"20px",background:`rgba(${hexRgb(color)},0.05)`,marginBottom:14}}>
             <div style={{fontSize:10,color,letterSpacing:3,marginBottom:10}}>DEFINITION</div>
             <div style={{fontSize:13,color:C.text,lineHeight:1.8,marginBottom:card.acronym||card.analogy?12:0}}>{card.definition}</div>
@@ -613,6 +681,7 @@ function QuizScreen({quizState,setQuizState,save,updateSave,setScreen,mode}){
   const [selected,setSelected]=useState(null);
   const [confirmed,setConfirmed]=useState(false);
   const [conf,setConf]=useState(null);
+  const handleNextRef=useRef();
   const q=questions[qIdx];
   const color=q.domainColor||C.d1;
   const qDomainName=q.domainName||quizState.domain?.name||"";
@@ -632,6 +701,23 @@ function QuizScreen({quizState,setQuizState,save,updateSave,setScreen,mode}){
       setQuizState(finalState);setScreen("result");
     }
   }
+  handleNextRef.current=handleNext;
+  useEffect(()=>{
+    function onKey(e){
+      if(e.target.tagName==="INPUT")return;
+      const map={"a":0,"b":1,"c":2,"d":3};
+      if(confirmed){if(e.key==="Enter")handleNextRef.current?.();}
+      else{
+        const i=map[e.key.toLowerCase()];
+        if(i!==undefined&&i<q.options.length)setSelected(i);
+        if(e.key==="1")setConf("sure");
+        if(e.key==="2")setConf("guess");
+        if(e.key==="Enter"&&selected!==null&&conf!==null)setConfirmed(true);
+      }
+    }
+    window.addEventListener("keydown",onKey);
+    return()=>window.removeEventListener("keydown",onKey);
+  },[confirmed,selected,conf,q.options.length]);
   return(
     <div style={S.app}><div style={S.scan}/>
     <div style={S.wrap}>
@@ -653,8 +739,9 @@ function QuizScreen({quizState,setQuizState,save,updateSave,setScreen,mode}){
           <span style={{marginRight:10,opacity:0.5}}>{String.fromCharCode(65+i)}.</span>{opt}
         </button>
       ))}
+      <div style={{fontSize:10,color:C.muted,letterSpacing:1,textAlign:"center",margin:"6px 0"}}>A B C D &nbsp;select &nbsp;·&nbsp; 1 know it &nbsp;2 guess &nbsp;·&nbsp; Enter confirm</div>
       {!confirmed&&selected!==null&&(
-        <div style={{marginTop:14,padding:"12px 14px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8}}>
+        <div style={{marginTop:10,padding:"12px 14px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8}}>
           <div style={S.label()}>How confident are you?</div>
           <div style={S.row}>
             <button onClick={()=>setConf("sure")} style={{...S.btn(conf==="sure"?C.green:C.muted,conf==="sure"),flex:1}}>✓ I Know This</button>
@@ -709,6 +796,7 @@ function ResultScreen({quizState,setScreen,setQuizState,save,updateSave}){
   const timeTaken=startTime&&finishedAt?Math.round((finishedAt-startTime)/1000):null;
   return(
     <div style={S.app}><div style={S.scan}/>
+    {passed&&<Celebration/>}
     <div style={S.wrap}>
       <div style={{textAlign:"center",padding:"28px 16px 20px"}}>
         <div style={{fontSize:10,color:C.dim,letterSpacing:3,marginBottom:8}}>{mode==="practice"?"PRACTICE TEST COMPLETE":mode==="daily"?"DAILY PRACTICE COMPLETE":`DOMAIN ${domain?.id||""} COMPLETE`}</div>
