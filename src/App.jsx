@@ -244,7 +244,7 @@ function HomeScreen({save,dp,practiceUnlocked,setScreen,setQuizState,setFcState}
     <div style={S.wrap}>
       <div style={{textAlign:"center",marginBottom:28}}>
         <div style={{fontSize:10,color:C.dim,letterSpacing:5,marginBottom:8}}>COMPTIA N10-009</div>
-        <div style={{fontSize:26,fontWeight:"bold",letterSpacing:4,color:C.d1,textShadow:`0 0 24px rgba(${hexRgb(C.d1)},0.5)`,marginBottom:4}}>NETWORK+ TRAINER</div>
+        <div style={{fontSize:26,fontWeight:"bold",letterSpacing:4,color:C.d1,textShadow:`0 0 24px rgba(${hexRgb(C.d1)},0.5)`,marginBottom:4}}>COMPTIA TRAINER</div>
         <div style={{fontSize:10,color:C.dim,letterSpacing:3}}>PROFESSOR MESSER ALIGNED &bull; ALL 5 DOMAINS</div>
       </div>
       <div style={S.divider}/>
