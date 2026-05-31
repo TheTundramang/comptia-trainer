@@ -790,25 +790,11 @@ function ResultScreen({quizState,setScreen,setQuizState,save,updateSave}){
 function ReviewScreen({quizState,setScreen}){
   const {questions,answers}=quizState;
   const [idx,setIdx]=useState(0);
-  const [altExplanation,setAltExplanation]=useState(null);
-  const [loadingAlt,setLoadingAlt]=useState(false);
   const q=questions[idx];
   const a=answers[idx];
   const isCorrect=a?.selected===a?.correct;
   const total=questions.length;
   const wrongIdxs=answers.map((a,i)=>a.selected!==a.correct?i:-1).filter(i=>i>=0);
-  useEffect(()=>{setAltExplanation(null);setLoadingAlt(false);},[idx]);
-  async function explainDifferently(){
-    setAltExplanation(null);setLoadingAlt(true);
-    try{
-      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,
-          messages:[{role:"user",content:`You are a Network+ tutor. The student learns best through analogies.\n\nQuestion: ${q.q}\nCorrect answer: ${q.options[q.answer]}\nOriginal analogy already given: ${q.analogy}\n\nWrite a COMPLETELY DIFFERENT analogy that explains why this answer is correct. Under 80 words. Start directly with the analogy, no preamble.`}]})});
-      const data=await res.json();
-      setAltExplanation(data.content?.find(c=>c.type==="text")?.text||"Could not generate alternative right now.");
-    }catch{setAltExplanation("Connection error. Try again.");}
-    setLoadingAlt(false);
-  }
   const color=q.domainColor||C.d1;
   return(
     <div style={S.app}><div style={S.scan}/>
@@ -848,15 +834,6 @@ function ReviewScreen({quizState,setScreen}){
           <div style={{fontSize:11,color:C.muted,letterSpacing:1,marginBottom:4}}>IN YOUR WORK</div>
           <div style={{fontSize:12,color:C.dim,lineHeight:1.8}}>{q.realWorld}</div>
         </div>
-        {!isCorrect&&<div>
-          {!altExplanation&&!loadingAlt&&<button onClick={explainDifferently} style={{...S.btn(C.gold),width:"100%",marginTop:4}}>🔄 EXPLAIN IT DIFFERENTLY (AI)</button>}
-          {loadingAlt&&<div style={{textAlign:"center",padding:"10px",fontSize:11,color:C.gold,letterSpacing:2}}>GENERATING...</div>}
-          {altExplanation&&<div style={{padding:"12px 14px",background:`rgba(${hexRgb(C.gold)},0.05)`,border:`1px solid ${C.gold}`,borderRadius:8,marginTop:8}}>
-            <div style={S.label(C.gold)}>Alternative Analogy (AI)</div>
-            <div style={{fontSize:12,color:C.text,lineHeight:1.8}}>{altExplanation}</div>
-            <button onClick={explainDifferently} style={{...S.btn(C.gold),marginTop:10,fontSize:10,padding:"5px 14px"}}>TRY ANOTHER</button>
-          </div>}
-        </div>}
       </div>
       <div style={S.row}>
         {idx>0&&<button onClick={()=>setIdx(i=>i-1)} style={{...S.btn(color),flex:1}}>← PREV</button>}
