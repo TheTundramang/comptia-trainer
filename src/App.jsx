@@ -195,7 +195,7 @@ function Celebration(){
   );
 }
 
-export default function App(){
+export default function App({onExit}){
   const [save,setSave]=useState(null);
   const [screen,setScreen]=useState("home");
   const [quizState,setQuizState]=useState(null);
@@ -219,7 +219,7 @@ export default function App(){
   if(save===null) return <div style={{...S.app,display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:C.dim,letterSpacing:3,fontSize:12}}>LOADING...</div></div>;
   const dp=save.domainProgress||{};
   const practiceUnlocked=DOMAINS.every(d=>dp[d.id]);
-  if(screen==="home") return <HomeScreen save={save} dp={dp} practiceUnlocked={practiceUnlocked} setScreen={setScreen} setQuizState={setQuizState} setFcState={setFcState}/>;
+  if(screen==="home") return <HomeScreen save={save} dp={dp} practiceUnlocked={practiceUnlocked} setScreen={setScreen} setQuizState={setQuizState} setFcState={setFcState} onExit={onExit}/>;
   if(screen==="domainSelect") return <DomainSelectScreen dp={dp} setScreen={setScreen} setQuizState={setQuizState}/>;
   if(screen==="domainQuiz"&&quizState) return <QuizScreen quizState={quizState} setQuizState={setQuizState} save={save} updateSave={updateSave} setScreen={setScreen} mode="domain"/>;
   if(screen==="daily") return <DailyScreen dp={dp} setScreen={setScreen} setQuizState={setQuizState}/>;
@@ -235,14 +235,15 @@ export default function App(){
   return null;
 }
 
-function HomeScreen({save,dp,practiceUnlocked,setScreen,setQuizState,setFcState}){
+function HomeScreen({save,dp,practiceUnlocked,setScreen,setQuizState,setFcState,onExit}){
   const attempts=Object.values(dp);
   const overallPct=attempts.length?Math.round(attempts.reduce((s,d)=>s+d.bestScore,0)/DOMAINS.length):0;
   const lastPractice=(save.practiceHistory||[]).slice(-1)[0];
   return(
     <div style={S.app}><div style={S.scan}/>
     <div style={S.wrap}>
-      <div style={{textAlign:"center",marginBottom:28}}>
+      <div style={{textAlign:"center",marginBottom:28,position:"relative"}}>
+        {onExit&&<button onClick={onExit} style={{position:"absolute",top:0,left:0,...S.btn(C.dim),padding:"4px 12px",fontSize:10}}>← ALL CERTS</button>}
         <div style={{fontSize:10,color:C.dim,letterSpacing:5,marginBottom:8}}>COMPTIA N10-009</div>
         <div style={{fontSize:26,fontWeight:"bold",letterSpacing:4,color:C.d1,textShadow:`0 0 24px rgba(${hexRgb(C.d1)},0.5)`,marginBottom:4}}>COMPTIA TRAINER</div>
         <div style={{fontSize:10,color:C.dim,letterSpacing:3}}>PROFESSOR MESSER ALIGNED &bull; ALL 5 DOMAINS</div>

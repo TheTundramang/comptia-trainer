@@ -1,0 +1,835 @@
+import { useState, useEffect, useRef } from "react";
+
+const C = {
+  bg:"#08090f", surface:"#0d1120", border:"#1a2540", muted:"#2a3a55",
+  text:"#c8d8f0", dim:"#4a6080", d1:"#00b4d8", d2:"#f77f00", d3:"#4cc9f0",
+  d4:"#e63946", d5:"#06d6a0", gold:"#ffd166", green:"#06d6a0", red:"#e63946",
+  orange:"#f77f00", purple:"#9b5de5",
+};
+function hexRgb(hex){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return `${r},${g},${b}`;}
+function scoreColor(p){return p>=80?C.green:p>=65?C.orange:C.red;}
+function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+const SK="aplus-v1";
+async function loadSave(){try{if(window.storage){const r=await window.storage.get(SK);if(r?.value)return JSON.parse(r.value);}else{const r=localStorage.getItem(SK);if(r)return JSON.parse(r);}}catch{}return{};}
+async function writeSave(d){try{if(window.storage)await window.storage.set(SK,JSON.stringify(d));else localStorage.setItem(SK,JSON.stringify(d));}catch{}}
+
+const FLASHCARD_DOMAINS=[
+  {id:"fc1",name:"Hardware Components",color:C.d3,icon:"🖥️",cards:[
+    {term:"DDR4 vs DDR5 RAM",definition:"DDR4: 1.2V, up to 3200 MT/s base, 64-bit single channel per DIMM. DDR5: 1.1V lower voltage, up to 6400+ MT/s, dual 32-bit sub-channels per DIMM, on-die ECC. Not backward compatible.",acronym:"DDR5 = Dual sub-channels, lower voltage, higher speed, on-die ECC. Cannot mix with DDR4 — different notch position and pin count.",analogy:"DDR5 is like upgrading from a single-lane road to a dual-lane divided highway with better guard rails (ECC). More throughput, safer data transmission.",category:"Memory"},
+    {term:"SATA vs NVMe Storage",definition:"SATA III: ~550 MB/s max, uses AHCI protocol, shared bus. NVMe PCIe Gen 4: ~7,000 MB/s, uses NVMe protocol, direct CPU connection via PCIe lanes. NVMe is 10-12x faster.",acronym:"SATA = ~550MB/s ceiling. NVMe PCIe Gen4 = ~7,000MB/s. NVMe uses PCIe lanes direct to CPU. SATA uses shared bus through chipset.",analogy:"SATA is a two-lane road through a town. NVMe is a direct expressway to the city — no traffic lights, no shared lanes.",category:"Storage"},
+    {term:"M.2 Form Factor",definition:"Physical connector standard for storage. Comes in SATA or PCIe (NVMe) protocol variants. Common sizes: 2242, 2260, 2280. A PCIe-only M.2 slot will NOT detect an M.2 SATA drive.",acronym:"M.2 = shape/size. SATA and NVMe = protocols. Check motherboard manual for slot type. 2280 = 22mm wide, 80mm long — most common.",analogy:"M.2 is a key shape. SATA and PCIe are different key types for the same lock shape. Wrong key type = won't work, even if it physically fits.",category:"Storage"},
+    {term:"RAID Levels",definition:"RAID 0: stripe, best performance, no redundancy. RAID 1: mirror, 50% capacity, 1 drive fault tolerance. RAID 5: stripe+parity, minimum 3 drives, 1 fault tolerance. RAID 10: mirror+stripe, minimum 4 drives, 1 per mirrored pair.",acronym:"RAID 0 = speed no safety. RAID 1 = copy everything. RAID 5 = parity (3+ drives). RAID 10 = best of 1+0, needs 4 drives minimum.",analogy:"RAID 0 is one fast lane. RAID 1 is two identical lanes (wreck one, the other is fine). RAID 5 is three lanes with a spare that rebuilds automatically. RAID 10 is four lanes with built-in backup pairs.",category:"Storage"},
+    {term:"PSU Connectors",definition:"24-pin ATX: main motherboard power. 4/8-pin EPS: CPU power (square connector near CPU socket). 6-pin PCIe: GPU up to 75W. 8-pin PCIe: GPU up to 150W. 15-pin SATA power: drives and optical. 4-pin Molex: older fans and drives.",acronym:"24-pin = motherboard. 8-pin square = CPU. 6/8-pin = GPU. 15-pin SATA = drives. Know which connector goes where before touching a PSU.",analogy:"PSU connectors are specialized plugs for each appliance in a kitchen. You can't plug the microwave cable into the refrigerator socket — each device has its own power spec.",category:"Power"},
+    {term:"CPU Socket Types",definition:"Intel: LGA (Land Grid Array) — pins on motherboard, flat contacts on CPU. AMD: AM4/AM5 — PGA (Pin Grid Array) for AM4 with pins on CPU; AM5 switched to LGA. Sockets are NOT cross-compatible.",acronym:"LGA = pins on motherboard (Intel). PGA = pins on CPU (AMD AM4). AM5 = AMD switched to LGA. Never force a CPU into the wrong socket.",analogy:"CPU sockets are like proprietary charging ports — Intel and AMD have their own standards. A USB-C cable doesn't fit a Lightning port no matter how hard you push.",category:"CPU"},
+    {term:"PCIe Slot Sizes",definition:"PCIe x1: 1 lane, used for network cards, sound cards. PCIe x4: 4 lanes, M.2 adapters, some SSDs. PCIe x8: 8 lanes, some GPUs. PCIe x16: 16 lanes, standard GPU slot. Physical size affects max bandwidth but a card can run in a larger slot.",acronym:"x1 < x4 < x8 < x16. GPU = x16 slot. NIC or sound card = x1. A PCIe x1 card can physically fit in an x16 slot (runs at x1 speed).",analogy:"PCIe lanes are like highway lanes. A PCIe x16 slot is a 16-lane expressway. Plugging a single-lane card into it works — it just uses one lane.",category:"Motherboard"},
+    {term:"Printer Types",definition:"Laser: uses toner powder, fuser heat-bonds to paper, fast, high-volume. Inkjet: liquid ink sprayed through nozzles, better photos, slower. Thermal: heat-sensitive paper, no ink/toner, used in receipt printers. Impact/dot-matrix: pins strike ribbon, multi-part forms.",acronym:"Laser = toner + fuser + drum. Inkjet = liquid ink + nozzles. Thermal = heat-sensitive paper, no consumables (except paper). Impact = carbon copy forms.",analogy:"Laser printers are laser engravers — fast and precise. Inkjets are spray painters — better for color blending. Thermal is like invisible ink that heat reveals.",category:"Printers"},
+  ]},
+  {id:"fc2",name:"Operating Systems",color:C.gold,icon:"💻",cards:[
+    {term:"Windows Editions",definition:"Home: basic features, no domain join, no BitLocker (drive encryption only). Pro: domain join, BitLocker, Remote Desktop host, Group Policy. Enterprise/Education: advanced management, AppLocker, DirectAccess.",acronym:"Home = home use only. Pro = business basics. Enterprise = full management suite. Domain join requires Pro or higher.",analogy:"Windows Home is a personal car. Pro is a fleet vehicle with a GPS tracker (Group Policy) and master key (domain). Enterprise is the company's entire fleet management system.",category:"Windows"},
+    {term:"Windows Command Line Tools",definition:"chkdsk: checks and repairs file system errors. sfc /scannow: scans and repairs protected system files. DISM /Online /Cleanup-Image /RestoreHealth: repairs the Windows component store. Run DISM before sfc when sfc fails.",acronym:"chkdsk = disk errors. sfc = system file checker. DISM = component store repair. Order: DISM first if sfc fails, not reinstall.",analogy:"chkdsk is checking a book for torn pages. sfc is replacing torn pages using a master copy. DISM repairs the master copy itself when it's damaged.",category:"Troubleshooting Tools"},
+    {term:"Registry Hives",definition:"HKLM (Local Machine): machine-wide settings, all users. HKCU (Current User): settings for logged-in user only. HKCR (Classes Root): file associations. HKCC (Current Config): current hardware profile. HKUS (Users): all user profiles.",acronym:"HKLM = everyone on this machine. HKCU = just me right now. HKCR = which app opens which file type. Regedit = registry editor, run as admin.",analogy:"HKLM is the building's electrical panel — changes affect everyone. HKCU is your personal desk drawer — only you use it.",category:"Windows"},
+    {term:"macOS Key Features",definition:"Time Machine: automatic backup to external drive or network share. FileVault: full disk encryption (similar to BitLocker). Spotlight: system-wide search. Migration Assistant: transfers data from old Mac or Time Machine backup. Terminal: bash/zsh shell.",acronym:"Time Machine = backup. FileVault = encrypt disk. Spotlight = Cmd+Space search. Migration Assistant = restore from backup. Finder = file manager.",analogy:"Time Machine takes hourly snapshots of your Mac, like Google Street View but for your file system — travel back to any hour in the past.",category:"macOS"},
+    {term:"Linux Essential Commands",definition:"ls: list files. ls -la: list all with permissions. chmod: change permissions. sudo: run as superuser. grep: search text. apt/yum/dnf: package managers. df -h: disk space. top/htop: process monitor. systemctl: manage services.",acronym:"ls=list. chmod=permissions. sudo=superuser. grep=search. apt=Debian packages. yum/dnf=Red Hat packages. df=disk free. ps=processes.",analogy:"Linux commands are power tools. chmod is the key maker (who can open what file). grep is a search-and-highlight marker. sudo is the master override key.",category:"Linux"},
+    {term:"File Systems",definition:"NTFS: Windows default, permissions, encryption, journaling, up to 256TB volumes. FAT32: universal compatibility, 4GB max file size, 32GB max volume. exFAT: FAT32 replacement for large flash drives, no file size limit. ext4: Linux default. APFS: macOS default (SSD-optimized).",acronym:"NTFS = Windows permissions and encryption. FAT32 = 4GB file limit (famous gotcha). exFAT = FAT32 with no size limit. ext4 = Linux. APFS = Mac.",analogy:"FAT32 is an old filing cabinet with tiny drawers — great for sharing but can't hold large files. NTFS is a modern secure filing system with locks per drawer.",category:"File Systems"},
+  ]},
+  {id:"fc3",name:"Networking Fundamentals",color:C.d1,icon:"🌐",cards:[
+    {term:"Common Ports — A+ Must-Know",definition:"FTP:21, SSH:22, Telnet:23, SMTP:25, DNS:53, DHCP:67/68, HTTP:80, HTTPS:443, SMB:445, RDP:3389, SNMP:161/162.",acronym:"For Serious Dueling, Some Dudes Hit Hard Reaching Somewhere: FTP(21) SSH(22) DNS(53) SMTP(25) DHCP(67) HTTP(80) HTTPS(443) RDP(3389) SMB(445).",analogy:"Ports are apartment numbers in a building. The building is the IP address. Each port is a door to a specific service. Knocking on port 80 reaches HTTP; port 443 reaches HTTPS.",category:"Ports"},
+    {term:"802.11 WiFi Standards",definition:"802.11a: 5GHz/54Mbps. 802.11b: 2.4GHz/11Mbps. 802.11g: 2.4GHz/54Mbps. 802.11n (Wi-Fi 4): dual-band/600Mbps. 802.11ac (Wi-Fi 5): 5GHz/3.5Gbps. 802.11ax (Wi-Fi 6/6E): dual-band/9.6Gbps.",acronym:"A Boy Got Netflix And eXtra: a, b, g, n, ac, ax. Speed increases with each generation. n = first dual-band. ac = 5GHz speed king. ax = latest.",analogy:"WiFi generations are like car model years. Each generation brings faster speeds and better efficiency. Wi-Fi 6 is the latest standard.",category:"Wireless"},
+    {term:"IP Address Classes",definition:"Class A: 1-126.x.x.x, mask /8. Class B: 128-191.x.x.x, mask /16. Class C: 192-223.x.x.x, mask /24. 127.x.x.x = loopback. 169.254.x.x = APIPA (no DHCP).",acronym:"A = Army (huge, /8). B = Business (medium, /16). C = Coffee shop (small, /24). 127 = loopback. 169.254 = DHCP is dead.",analogy:"Class A is a continent address. Class B is a country address. Class C is a city block address. 169.254.x.x means your GPS (DHCP) is broken.",category:"IP Addressing"},
+    {term:"DNS Record Types",definition:"A: hostname to IPv4. AAAA: hostname to IPv6. MX: mail server for domain. CNAME: alias pointing to another hostname. PTR: reverse lookup (IP to hostname). TXT: text records (SPF, DKIM verification).",acronym:"A=address IPv4. AAAA=address IPv6. MX=mail. CNAME=alias. PTR=reverse. TXT=text/SPF. nslookup tests all of these.",analogy:"DNS records are a phonebook with different sections: A records are the main listings (name→number). MX records are the 'messages for this person go here' forwarding notes.",category:"DNS"},
+    {term:"Network Troubleshooting Commands",definition:"ping: test IP connectivity (ICMP). tracert/traceroute: trace path hop-by-hop. ipconfig/ifconfig: show IP configuration. nslookup: test DNS resolution. netstat: show active connections. arp -a: show ARP cache. route print: show routing table.",acronym:"PTING-A-R: Ping, Tracert, IpConfig, NSLookup, Netstat, ARP, Route. Use in this order when troubleshooting connectivity.",analogy:"Network commands are like medical diagnostic tools. Ping is taking a pulse. Tracert is an MRI showing where the blockage is. nslookup is checking if the address book is correct.",category:"Troubleshooting"},
+  ]},
+  {id:"fc4",name:"Security Essentials",color:C.purple,icon:"🔒",cards:[
+    {term:"Malware Types",definition:"Virus: needs host file + user action to spread. Worm: self-propagates via network. Trojan: disguised as legitimate software. Ransomware: encrypts files, demands payment. Spyware: monitors user activity. Keylogger: records keystrokes. Rootkit: hides its presence.",acronym:"VWTRSK: Virus(host), Worm(network), Trojan(disguised), Ransomware(encrypt+extort), Spyware(monitor), Keylogger(keys), Rootkit(hides).",analogy:"A virus needs a carrier (host file). A worm is airborne — spreads alone. A Trojan is a gift with a bomb inside. Ransomware is a digital kidnapper.",category:"Malware"},
+    {term:"Social Engineering",definition:"Phishing: mass email. Spear phishing: targeted email. Vishing: voice call. Smishing: SMS text. Tailgating: physically following someone through a secure door. Shoulder surfing: watching someone type credentials.",acronym:"PVVST-SS: Phishing, Vishing, Smishing, Tailgating, Shoulder Surfing. All exploit human trust rather than technical vulnerabilities.",analogy:"Social engineering is the art of the con. A technically perfect lock means nothing if you convince someone to hold the door open for you.",category:"Social Engineering"},
+    {term:"Windows Security Tools",definition:"Windows Defender: built-in antivirus/antimalware. Windows Firewall: host-based stateful firewall. BitLocker: full disk encryption. UAC (User Account Control): prompts for elevation before admin actions. EFS: encrypts individual files/folders.",acronym:"Defender = AV. Firewall = host firewall. BitLocker = full disk. UAC = elevation prompt. EFS = file-level encryption. All built into Windows.",analogy:"Windows security tools are like layers of protection in a house: Defender is the guard dog, Firewall is the door lock, BitLocker is the safe inside.",category:"Windows Security"},
+    {term:"Data Destruction Methods",definition:"Formatting/deletion: NOT secure — data is recoverable. Overwriting: writes zeros/random data over all sectors. Secure erase: ATA command for SSDs. Degaussing: magnetic field disruption for HDDs (ineffective on SSDs). Physical destruction: shredding/crushing — most thorough.",acronym:"Delete = NOT secure. Overwrite = multiple passes. Degauss = HDD only. Physical destroy = nuclear option. NIST 800-88 = the standard.",analogy:"Deleting a file is like erasing pencil marks — forensic tools can restore it. Degaussing is demagnetizing the disk like a bulk tape eraser. Shredding is feeding it into a paper shredder.",category:"Data Destruction"},
+  ]},
+  {id:"fc5",name:"Troubleshooting Tools & Methods",color:C.d5,icon:"🔧",cards:[
+    {term:"CompTIA 7-Step Troubleshooting Methodology",definition:"1-Identify the problem. 2-Establish a theory of probable cause. 3-Test the theory. 4-Establish a plan of action and implement. 5-Verify full system functionality. 6-Document findings. 7-Implement preventive measures.",acronym:"I Eat The People Voting Daily Properly: Identify, Establish theory, Test, Plan, Verify, Document, Prevent.",analogy:"A doctor doesn't prescribe medication before examining the patient. Step 1 (Identify) is always first — gather facts before guessing the fix.",category:"Methodology"},
+    {term:"POST and BSOD Diagnostics",definition:"POST (Power-On Self-Test): runs before OS loads. Beep codes indicate hardware failures (RAM, CPU, GPU) when video is unavailable. BSOD (Blue Screen of Death): Windows stop error. MEMORY_MANAGEMENT=RAM. INACCESSIBLE_BOOT_DEVICE=storage/driver. PAGE_FAULT_IN_NONPAGED_AREA=bad RAM or driver.",acronym:"POST beeps = pre-video hardware errors. BSOD codes: MEMORY=RAM. BOOT_DEVICE=storage. PAGE_FAULT=RAM or driver. Always note the stop code.",analogy:"POST beep codes are like Morse code from your computer — it can't show you a screen, so it beeps the problem at you.",category:"Diagnostics"},
+    {term:"Hardware Diagnostic Tools",definition:"MemTest86: bootable RAM tester, OS-independent, gold standard for memory testing. CrystalDiskInfo: HDD/SSD health via S.M.A.R.T. data. HWMonitor: CPU/GPU temperatures and voltages. Prime95: CPU stress test. GPU-Z: GPU specs and temperatures.",acronym:"MemTest86 = RAM. CrystalDisk = drive health. HWMonitor = temps/voltages. Prime95 = CPU stress. All free, all essential.",analogy:"Hardware diagnostics are the vital signs of your PC. MemTest is the blood test for RAM health. CrystalDiskInfo is the ECG for your hard drive.",category:"Tools"},
+    {term:"Network Cable Tools",definition:"Cable certifier: tests cable meets spec (Cat5e/Cat6), shows attenuation, crosstalk, length. Toner probe + generator: traces cables through walls/bundles by sound. OTDR (Optical Time-Domain Reflectometer): tests fiber, finds breaks and distance. Multimeter: tests voltage continuity.",acronym:"Certifier = specs pass/fail. Toner = find the cable. OTDR = fiber testing. Multimeter = electrical continuity.",analogy:"A cable certifier is a complete physical exam for copper cable. A toner probe is like a metal detector for cables. An OTDR sends a light pulse down fiber to echo-locate breaks.",category:"Tools"},
+    {term:"Printer Troubleshooting",definition:"Paper jam: check all access points, remove paper gently, check rollers. No print: check driver, print queue, port. Smearing (laser): worn fuser or drum. Faded print (laser): low toner. Streaks (inkjet): clogged nozzle, run cleaning cycle. Ghosting (laser): worn drum.",acronym:"Laser smearing = fuser. Faded = toner. Streaks inkjet = nozzle. Ghosting = drum. Lines on paper = dirty corona wire or drum scratch.",analogy:"Laser printer problems map to the printing process: toner low = faded, drum worn = ghosting, fuser worn = smearing — trace the paper path to find the failure.",category:"Printers"},
+  ]},
+  {id:"fc6",name:"Mobile & Cloud",color:C.d2,icon:"📱",cards:[
+    {term:"Mobile Display Technologies",definition:"IPS LCD: wide viewing angles, accurate color, used in most laptops. TN LCD: fast response, narrower viewing angle, used in budget displays. OLED: self-emissive, true blacks, infinite contrast, thinner. AMOLED: Samsung's OLED variant for phones.",acronym:"TN = Twisted Nematic (cheap/fast). IPS = In-Plane Switching (color accurate). OLED = no backlight, pixels glow. AMOLED = Active Matrix OLED.",analogy:"TN is a cheap flashlight. IPS is a professional studio lamp. OLED is a light-up sign where each letter can turn off individually.",category:"Displays"},
+    {term:"Mobile Connector Types",definition:"USB-C: reversible, supports USB 3.x, Power Delivery, Thunderbolt, DisplayPort Alt Mode. Lightning: Apple proprietary (iPhone/iPad pre-2023). Micro-USB: older Android standard. USB-A: standard rectangular connector. Mini-USB: older devices.",acronym:"USB-C = reversible + data + power + video. Lightning = Apple only. Micro-USB = old Android. USB-A = standard rectangle.",analogy:"USB-C is a Swiss Army knife connector. Lightning is a brand-name proprietary tool. Micro-USB is the old flat-head screwdriver everyone has a drawer full of.",category:"Connectors"},
+    {term:"Cloud Service Models",definition:"IaaS (Infrastructure as a Service): VMs, storage, networking — you manage OS up. PaaS (Platform as a Service): runtime, middleware — you manage apps and data only. SaaS (Software as a Service): complete apps delivered over the internet — you manage nothing.",acronym:"IaaS = rent the hardware shell. PaaS = rent the runtime. SaaS = rent the whole app. Examples: IaaS=AWS EC2. PaaS=Azure App Service. SaaS=Microsoft 365.",analogy:"IaaS is renting an empty kitchen. PaaS is renting a kitchen with all the equipment. SaaS is ordering from a restaurant — you just eat.",category:"Cloud"},
+    {term:"Hypervisor Types",definition:"Type 1 (bare metal): runs directly on hardware, no host OS. Examples: VMware ESXi, Microsoft Hyper-V Server, Xen. Type 2 (hosted): runs as an app on a host OS. Examples: VMware Workstation, VirtualBox, Parallels.",acronym:"Type 1 = bare metal = enterprise data centers. Type 2 = runs on top of OS = desktop testing. ESXi/Hyper-V = Type 1. Workstation/VirtualBox = Type 2.",analogy:"Type 1 is building a hotel directly on land — the hotel IS the structure. Type 2 is renting a conference room inside someone else's hotel.",category:"Virtualization"},
+    {term:"Mobile Device Management (MDM)",definition:"Software that manages mobile devices remotely. Capabilities: remote wipe, enforce screen lock PIN, push apps, restrict features, enforce encryption, geofencing. Examples: Microsoft Intune, VMware Workspace ONE, Jamf (Apple).",acronym:"MDM = manage + secure + wipe remotely. Remote wipe = nuke the device. Containerization = separate work data from personal data.",analogy:"MDM is a remote control for every company phone. If a device is lost, IT can wipe it remotely — like a kill switch for your data.",category:"Mobile"},
+  ]},
+];
+
+const DOMAINS=[
+  {id:1,name:"Mobile Devices",weight:"15%",color:C.d1,icon:"📱",desc:"Display types, connectors, mobile OS, accessories, synchronization",questions:[
+    {topic:"Display Types",q:"A user reports their laptop screen shows vivid colors at straight-on viewing but colors shift noticeably when viewed from the side. Which display type is this?",options:["IPS","OLED","TN","VA"],answer:2,explanation:"TN (Twisted Nematic) panels have the narrowest viewing angles of common display technologies. Colors shift and wash out when viewed off-axis, which is a characteristic symptom of TN panels.",analogy:"TN is like looking at a photo album that only looks good when held directly in front of you. Tilt it and the picture looks wrong.",realWorld:"When recommending a laptop display for a designer or anyone who works with others reviewing their screen, always recommend IPS or OLED — never TN."},
+    {topic:"Display Types",q:"Which display technology produces true blacks and the highest contrast ratio by turning off individual pixels?",options:["IPS LCD","TN LCD","LED-backlit LCD","OLED"],answer:3,explanation:"OLED (Organic Light Emitting Diode) panels are self-emissive — each pixel generates its own light and can turn completely off, producing true black (not backlit dark gray) and theoretically infinite contrast ratio.",analogy:"LCD is a flashlight shining through a filter. You can dim the filter but light always bleeds through. OLED pixels are the flashlight itself — they can be completely off.",realWorld:"High-end smartphones and premium laptops use OLED. The vivid colors and true blacks are immediately visible. OLED also saves battery when displaying dark themes."},
+    {topic:"Mobile Connectors",q:"A technician needs to connect a modern smartphone to a monitor for video output using a single cable. Which connector type supports video output via Alternate Mode?",options:["Micro-USB","Lightning","USB-C","USB-A"],answer:2,explanation:"USB-C supports DisplayPort and HDMI Alternate Mode, allowing video output over the same connector used for data and charging. This is a key advantage over Micro-USB and Lightning.",analogy:"USB-C is a universal remote that controls the TV, Blu-ray, and sound system. Previous connectors were single-function remotes.",realWorld:"Many modern laptops use USB-C/Thunderbolt as the only video output. A USB-C to HDMI or USB-C to DisplayPort adapter is the solution for external monitor connections."},
+    {topic:"Mobile Troubleshooting",q:"A user's tablet responds to touch input normally but the display shows no image — the screen is black. Which component has most likely failed?",options:["Digitizer","Display panel (LCD/OLED)","Battery","Charging port"],answer:1,explanation:"The digitizer (touch sensor) and the display panel are separate components. If touch input works but there is no image, the display panel has failed while the digitizer remains functional.",analogy:"A piano's keys (digitizer) and strings (display) are separate systems. Press the keys and no sound = strings are broken, not the keys.",realWorld:"This diagnosis is critical for repair cost estimation. Replacing just the display panel is less expensive than a full screen assembly. Test touch input before ordering parts."},
+    {topic:"Laptop Hardware",q:"Which RAM form factor is used in laptops as opposed to standard desktop computers?",options:["DIMM","SO-DIMM","SIMM","RIMM"],answer:1,explanation:"SO-DIMM (Small Outline DIMM) is approximately half the physical length of a desktop DIMM, designed to fit in the tighter spaces inside laptop chassis.",analogy:"SO-DIMM is travel-size RAM — same function, smaller package, designed to fit where a full-size module won't.",realWorld:"When upgrading laptop RAM, always verify SO-DIMM compatibility and the maximum supported capacity. Not all laptop slots are upgradeable — check the service manual first."},
+    {topic:"Mobile Synchronization",q:"Which synchronization method allows a mobile device to back up and sync contacts, photos, and app data wirelessly without a cable?",options:["USB sync","Wired iTunes sync","Cloud synchronization (iCloud/Google Sync)","Bluetooth sync"],answer:2,explanation:"Cloud sync services (iCloud for Apple, Google Sync for Android) backup and synchronize data automatically over Wi-Fi, requiring no physical connection.",analogy:"Cloud sync is like having a personal assistant who automatically copies all your notes to every office you work in. USB sync is hand-delivering the folder yourself.",realWorld:"When a user gets a new phone and their contacts and photos appear automatically, cloud sync did that work. The exam tests that students know this is separate from manual USB/iTunes sync."},
+    {topic:"Mobile OS",q:"Which mobile operating system feature allows an organization to remotely erase all data from a lost or stolen device?",options:["App sandboxing","Remote wipe via MDM","Screen lock PIN","Device encryption"],answer:1,explanation:"Remote wipe is a Mobile Device Management (MDM) capability that allows IT administrators to send a wipe command to a lost or stolen device, erasing all corporate and personal data.",analogy:"Remote wipe is a self-destruct code for your device. The moment the device connects to the internet, the wipe command executes.",realWorld:"Every BYOD policy should include MDM enrollment. If a salesperson's phone with customer data is stolen, remote wipe is the first call an IT admin should be ready to make."},
+    {topic:"Mobile Devices",q:"What is the purpose of a docking station connected to a laptop?",options:["Increase battery life","Provide additional ports and connections that extend the laptop's connectivity","Replace the laptop's operating system","Increase CPU performance"],answer:1,explanation:"A docking station expands a laptop's connectivity by providing additional USB ports, display outputs, Ethernet, audio jacks, and sometimes charging — all through a single cable connection to the laptop.",analogy:"A docking station is like a hub adapter for your laptop — one plug and suddenly you have 10 ports instead of 2.",realWorld:"For hot-desking environments, docking stations allow employees to connect to monitors, keyboard, and mouse instantly when they arrive at a desk, then unplug and leave with their laptop."},
+    {topic:"Mobile Connectivity",q:"A user's laptop cannot detect any available Wi-Fi networks but other devices can. The Wi-Fi indicator light is off. What is the FIRST troubleshooting step?",options:["Reinstall the operating system","Check if the Wi-Fi hardware switch or function key toggle is disabled","Replace the wireless network adapter","Reset the router"],answer:1,explanation:"Many laptops have a physical Wi-Fi switch or a function key combination (e.g., Fn+F2) that disables the wireless adapter. This is the most common — and most overlooked — cause of a laptop showing no wireless networks.",analogy:"Before calling the power company because your lights don't work, check if the breaker flipped. The hardware switch is the breaker for Wi-Fi.",realWorld:"This is a classic first-week helpdesk call. Always check the obvious before escalating. Fn+Wi-Fi key or a physical slider on the side of older laptops is the culprit surprisingly often."},
+    {topic:"Mobile Devices",q:"Which technology allows a smartphone to make payments by tapping it on a point-of-sale terminal?",options:["Bluetooth","Wi-Fi Direct","NFC (Near Field Communication)","IR (Infrared)"],answer:2,explanation:"NFC enables short-range (a few centimeters) wireless communication for contactless payments (Apple Pay, Google Pay), data sharing, and pairing. It requires proximity — tap, not click.",analogy:"NFC is like a secret handshake that only works when you're close enough to whisper. Bluetooth can talk across a room; NFC requires you to nearly touch.",realWorld:"NFC is also used for contactless access badges and quick Bluetooth pairing (NFC tap-to-pair). The A+ exam tests that students identify NFC as the contactless payment technology."},
+  ]},
+  {id:2,name:"Networking",weight:"20%",color:C.d2,icon:"🌐",desc:"TCP/IP, ports, protocols, WiFi standards, cables, network tools",questions:[
+    {topic:"IP Addressing",q:"A technician runs ipconfig and sees the IP address 169.254.33.10. What does this indicate?",options:["Static IP configured correctly","DHCP server assigned this address","DHCP server is unreachable — APIPA self-assigned","IPv6 is disabled"],answer:2,explanation:"169.254.x.x is an APIPA (Automatic Private IP Addressing) address. Windows self-assigns this when it cannot reach a DHCP server, allowing local communication but not internet access.",analogy:"APIPA is your phone going into airplane mode to use local apps — you can talk to devices on the same subnet, but you can't reach the internet.",realWorld:"When a user reports no internet and ipconfig shows 169.254.x.x, start troubleshooting the DHCP server or the cable between the workstation and switch."},
+    {topic:"Ports & Protocols",q:"Which port does RDP (Remote Desktop Protocol) use by default?",options:["22","3389","5900","443"],answer:1,explanation:"RDP uses TCP port 3389 for graphical remote access to Windows machines. Port 22 is SSH, 5900 is VNC, 443 is HTTPS.",analogy:"RDP on port 3389 is like a window that shows another computer's desktop. VNC on 5900 does the same but differently — the exam tests that you know which port belongs to which protocol.",realWorld:"Port 3389 exposed to the internet is a constant attack target for brute-force and credential-stuffing attacks. It should only be accessible via VPN."},
+    {topic:"Protocols",q:"Which protocol automatically assigns IP addresses, subnet masks, default gateways, and DNS server information to devices?",options:["DNS","ARP","DHCP","SMTP"],answer:2,explanation:"DHCP (Dynamic Host Configuration Protocol) provides automatic IP configuration to clients. Without DHCP, every device would require manual IP configuration.",analogy:"DHCP is the hotel check-in desk. You arrive (DISCOVER), get a room offer (OFFER), accept (REQUEST), and get your key (ACKNOWLEDGE).",realWorld:"When a user has internet issues, ipconfig /release followed by ipconfig /renew forces a fresh DHCP negotiation — one of the most-used helpdesk troubleshooting steps."},
+    {topic:"Wireless",q:"Which 802.11 standard was the first to support operation on BOTH the 2.4 GHz and 5 GHz bands?",options:["802.11a","802.11g","802.11n","802.11ac"],answer:2,explanation:"802.11n (Wi-Fi 4) introduced dual-band support, allowing operation on both 2.4 GHz (range) and 5 GHz (speed) simultaneously. It also introduced MIMO antennas for improved throughput.",analogy:"802.11n was the first Wi-Fi that let you choose between the country road (2.4 GHz, longer range) and the expressway (5 GHz, faster) — same trip, different routes.",realWorld:"When troubleshooting slow Wi-Fi, check if the device is connected to 2.4 GHz instead of 5 GHz. Modern APs broadcast both; devices sometimes stick to 2.4 GHz."},
+    {topic:"Cables",q:"What is the maximum cable run length for Cat5e and Cat6 Ethernet in a 100BASE-T or 1000BASE-T installation?",options:["50 meters","100 meters","150 meters","300 meters"],answer:1,explanation:"The TIA/EIA-568 standard defines 100 meters (328 feet) as the maximum horizontal cable run for twisted pair Ethernet. Exceeding this causes signal attenuation and reliability problems.",analogy:"A garden hose loses water pressure over distance. At 100m the Ethernet signal pressure drops too low for reliable transmission.",realWorld:"When running a new cable drop, measure the path before pulling cable. A run that exceeds 100m requires a switch or wireless AP at the midpoint."},
+    {topic:"Ports & Protocols",q:"Which port does DNS use for standard queries?",options:["80","443","53","25"],answer:2,explanation:"DNS uses UDP port 53 for standard queries (fast, stateless). DNS uses TCP port 53 for zone transfers (copying entire DNS databases between servers). The exam almost always asks about UDP 53.",analogy:"DNS is the internet's phone book on port 53. Without DNS working, you can still reach sites by IP address — the phone book is broken but the phones still work.",realWorld:"When a user can ping 8.8.8.8 but cannot reach google.com, DNS is broken. Run nslookup to confirm, then check the DNS server setting in ipconfig /all."},
+    {topic:"Networking",q:"What is the function of a default gateway on a workstation?",options:["Assigns the workstation's IP address","Provides DNS name resolution","Routes traffic destined for other networks","Controls which websites can be accessed"],answer:2,explanation:"The default gateway is the IP address of the router interface on the local subnet. Traffic destined for other networks (including the internet) is sent to the default gateway.",analogy:"The default gateway is the front door of your apartment building. Local mail goes directly to neighbors (same subnet). Outside mail goes through the front door (gateway) to the postal system.",realWorld:"'No default gateway configured' is a common cause of a user having a valid IP but no internet access. Check ipconfig — if the gateway field is blank, that is the problem."},
+    {topic:"Wireless",q:"A small office has three 2.4 GHz access points. To minimize co-channel interference, which channels should be assigned?",options:["1, 2, 3","1, 6, 11","6, 7, 8","2, 7, 12"],answer:1,explanation:"In the 2.4 GHz band, only channels 1, 6, and 11 are non-overlapping. All other channel combinations create co-channel interference between adjacent APs.",analogy:"2.4 GHz channels 1, 6, and 11 are like three lanes that don't overlap. All other channel combinations are like straddling the lane line — you interfere with your neighbors.",realWorld:"The most common Wi-Fi configuration mistake is putting all APs on the same channel. A Wi-Fi analyzer app (Acrylic, Wifi Analyzer) shows channel usage immediately."},
+    {topic:"Networking",q:"What does the command ipconfig /flushdns accomplish on a Windows machine?",options:["Releases the DHCP lease","Renews the IP address from DHCP","Clears the local DNS resolver cache","Resets the network adapter"],answer:2,explanation:"ipconfig /flushdns clears the Windows DNS resolver cache, forcing the OS to perform fresh DNS lookups for all domain names on the next request.",analogy:"Your computer caches DNS responses like a browser caches web pages. flushdns wipes that cache for fresh lookups — like clearing browser cache but for domain name resolution.",realWorld:"After a DNS record change (like moving a server to a new IP), affected users run ipconfig /flushdns to immediately see the updated record without waiting for the cache TTL to expire."},
+    {topic:"PoE",q:"A new IP camera requires 35W of power. Which PoE standard provides sufficient power for this device?",options:["802.3af (PoE) — 15.4W","802.3at (PoE+) — 30W","802.3bt (PoE++) — up to 100W","Standard Ethernet — no power"],answer:2,explanation:"802.3af delivers up to 15.4W, 802.3at up to 30W, and 802.3bt up to 60-100W depending on type. A 35W device exceeds 802.3at and requires 802.3bt.",analogy:"PoE power budget is like an extension cord wattage rating. The device's draw must be less than the cord's rating — use the right cord for the load.",realWorld:"High-resolution PTZ cameras and Wi-Fi 6 access points increasingly require 802.3bt. Always check the device's power spec before selecting the PoE switch."},
+  ]},
+  {id:3,name:"Hardware",weight:"25%",color:C.d3,icon:"🖥️",desc:"RAM, storage, CPUs, motherboards, power supplies, RAID",questions:[
+    {topic:"Memory",q:"Which RAM type uses a lower operating voltage of 1.1V and introduces on-die ECC compared to its predecessor?",options:["DDR3","DDR4","DDR5","LPDDR4"],answer:2,explanation:"DDR5 operates at 1.1V (versus DDR4's 1.2V), includes on-die ECC for improved data integrity, and splits each DIMM into two independent 32-bit sub-channels. It is not backward compatible with DDR4 slots.",analogy:"DDR5 is an upgraded power strip with surge protection built in (on-die ECC) that uses less electricity (1.1V). Physically incompatible with the old outlet shape (DDR4 slot).",realWorld:"When specifying RAM for a new build, verify the motherboard supports DDR5. DDR4 and DDR5 use different physical slots — you cannot mix or swap generations."},
+    {topic:"Storage",q:"A technician is upgrading a workstation's storage. The motherboard has an M.2 slot labeled 'PCIe Gen 4 x4 only.' Which drive should be installed?",options:["Any M.2 drive","An M.2 SATA SSD","An M.2 NVMe PCIe Gen 4 SSD","An M.2 SATA or NVMe — both will work"],answer:2,explanation:"An M.2 slot labeled 'PCIe Gen 4 x4 only' exclusively supports NVMe drives using the PCIe protocol. An M.2 SATA drive will not be detected because the slot does not support the SATA protocol.",analogy:"M.2 is the slot shape. PCIe and SATA are different key types. A PCIe-only slot is like a lock that only accepts one key type — the SATA key physically fits but won't turn.",realWorld:"Check the motherboard manual before purchasing M.2 drives. Many budget boards have one PCIe M.2 and one SATA M.2 — they look identical but are not interchangeable."},
+    {topic:"Motherboards",q:"A user wants to build the most compact PC possible that still supports a dedicated full-length graphics card. Which motherboard form factor is the smallest that includes a PCIe x16 slot?",options:["ATX","Micro-ATX","Mini-ITX","Nano-ITX"],answer:2,explanation:"Mini-ITX (170x170mm) is the smallest standard form factor that includes one full PCIe x16 expansion slot. Nano-ITX is even smaller but typically lacks full PCIe x16 support.",analogy:"Mini-ITX is a studio apartment that still has a full kitchen — smallest footprint that sacrifices nothing essential.",realWorld:"Mini-ITX builds are popular for HTPCs and LAN party rigs. Thermal management is the main challenge — small cases with limited airflow require careful component selection."},
+    {topic:"Power Supplies",q:"A new GPU's specifications require two 8-pin PCIe power connectors. The existing PSU only has one 8-pin PCIe connector. What is the correct resolution?",options:["Use a 6-to-8-pin adapter on the second connector","Use a Molex-to-PCIe adapter","Upgrade to a PSU with two native 8-pin PCIe connectors","Connect a SATA power to PCIe adapter"],answer:2,explanation:"Adapters for GPU power connectors are not recommended — they can cause insufficient current delivery, connector failure, or fire under sustained GPU load. The correct solution is a PSU with adequate native connectors.",analogy:"Using power adapters for a high-performance GPU is like splicing extension cords to power a welder. It might work briefly but fails dangerously under load.",realWorld:"GPU upgrades frequently require a PSU swap. Quote the PSU replacement alongside the GPU — check the GPU's TDP and connector requirements before the customer approves the build."},
+    {topic:"Storage",q:"What is the approximate maximum sequential read speed difference between a SATA III SSD and a PCIe Gen 4 NVMe SSD?",options:["SATA and NVMe are comparable in speed","NVMe is 2x faster (~1,100 MB/s vs ~550 MB/s)","NVMe PCIe Gen 4 is ~12x faster (~7,000 MB/s vs ~550 MB/s)","NVMe is only faster for random reads"],answer:2,explanation:"SATA III is limited to approximately 550 MB/s due to the interface. PCIe Gen 4 NVMe drives achieve 7,000+ MB/s sequential reads — roughly 12-13x faster.",analogy:"SATA is a bicycle path. PCIe Gen 4 NVMe is a Formula 1 circuit. Same destination, dramatically different speeds.",realWorld:"For OS drives and application storage, NVMe is the clear choice in modern builds. SATA SSDs remain cost-effective for secondary storage where sequential speed is less critical."},
+    {topic:"RAID",q:"Which RAID level provides the best sequential read AND write performance but offers NO fault tolerance?",options:["RAID 0","RAID 1","RAID 5","RAID 10"],answer:0,explanation:"RAID 0 (striping) splits data across all drives for maximum performance — reads and writes are parallelized. However, if any single drive fails, ALL data in the array is lost. No redundancy whatsoever.",analogy:"RAID 0 is writing the first half of every sentence on one page and the second half on another. Reading is fast — you read both simultaneously. But lose either page and the sentences are all incomplete.",realWorld:"RAID 0 is used for non-critical high-performance applications like video scratch disks or game caches. Never use RAID 0 as the only copy of important data."},
+    {topic:"Display Connections",q:"Which display connection standard carries both video and audio signals and is the most common connection for connecting a computer to a TV?",options:["VGA","DVI","HDMI","DisplayPort"],answer:2,explanation:"HDMI carries both high-definition video and multi-channel audio over a single cable. VGA is analog video only, DVI is digital video only (most versions). DisplayPort also carries both but is less common on consumer TVs.",analogy:"VGA is a black-and-white TV connection. DVI is color TV without sound. HDMI is the modern connection that carries the movie AND the soundtrack.",realWorld:"When a user wants to connect a computer to a large screen TV for presentations, HDMI is the natural choice — single cable, audio and video, universally supported on TVs."},
+    {topic:"Cooling",q:"A workstation shuts down unexpectedly under load but restarts fine. CPU temperatures under load exceed 95°C. What is the MOST likely cause?",options:["Faulty RAM","Corrupt operating system","CPU thermal protection triggering shutdown due to overheating","Failing power supply"],answer:2,explanation:"Modern CPUs have thermal protection that triggers shutdown when temperatures exceed safe thresholds (typically 90-100°C). The system shuts down to prevent permanent CPU damage, which explains why it restarts fine after cooling.",analogy:"Thermal shutdown is a car engine cutting out on a steep hill because it's overheating — it works fine once cooled, but the cooling system needs attention.",realWorld:"First action: clean dust from the CPU heatsink and reapply thermal paste. A clogged heatsink is the most common cause of CPU overheating in systems more than 2-3 years old."},
+    {topic:"Hardware",q:"A hard drive produces a repetitive clicking noise during operation. Files are becoming inaccessible. What is the immediate priority?",options:["Run chkdsk /f to repair the file system","Defragment the drive to improve read performance","Back up all data immediately — the drive is experiencing a mechanical failure","Reinstall the operating system"],answer:2,explanation:"The 'click of death' indicates the read/write heads are failing to locate tracks and resetting repeatedly. This is a mechanical failure that leads to complete drive failure. Data backup is the only priority.",analogy:"A clicking hard drive is a car making a grinding brake noise. You don't keep driving and try to fix it later — you pull over immediately before it fails completely.",realWorld:"Do NOT run chkdsk or any write-intensive operations on a clicking drive — every write attempt risks making forensic recovery harder. Image the drive with ddrescue if possible, then recover data."},
+    {topic:"Printers",q:"A laser printer produces pages with random smearing of toner that wipes off easily when touched. Which component is MOST likely failing?",options:["Toner cartridge","Drum unit","Fuser assembly","Corona wire"],answer:2,explanation:"The fuser assembly uses heat and pressure to bond toner permanently to paper. If the fuser is worn or failing, toner is not heat-bonded and wipes off easily. This is a classic fuser failure symptom.",analogy:"A fuser is like an iron that presses a toner image permanently onto paper. A broken iron means the pattern just sits on the fabric without bonding.",realWorld:"Fuser assemblies are consumable components — they have a page count rating. On heavily used printers, replacing the fuser is a routine maintenance item."},
+  ]},
+  {id:4,name:"Virtualization & Cloud Computing",weight:"12%",color:C.d4,icon:"☁️",desc:"Hypervisors, containers, IaaS/PaaS/SaaS, cloud deployment models",questions:[
+    {topic:"Hypervisors",q:"Which statement correctly distinguishes a Type 1 from a Type 2 hypervisor?",options:["Type 1 requires a host OS; Type 2 does not","Type 1 runs directly on hardware; Type 2 runs as an application on a host OS","Type 2 is used in data centers; Type 1 is for desktop testing","Type 1 and Type 2 are different names for the same technology"],answer:1,explanation:"Type 1 (bare metal) hypervisors run directly on hardware without a host OS, providing better performance and security. Type 2 (hosted) hypervisors run as applications on top of a host OS.",analogy:"Type 1 is building a hotel directly on land. Type 2 is renting a conference room in someone else's hotel. The hotel itself (hypervisor) is in a more powerful position when it owns the land.",realWorld:"Enterprise data centers use Type 1 (VMware ESXi, Hyper-V Server). Developers and students use Type 2 (VMware Workstation, VirtualBox) for local testing. The A+ exam tests both examples."},
+    {topic:"Virtualization",q:"What is the primary difference between a virtual machine and a container?",options:["VMs are faster than containers","Containers share the host OS kernel; VMs run a full separate OS per instance","Containers require more resources than VMs","VMs can only run on Linux"],answer:1,explanation:"Containers share the host kernel and package only the application and its dependencies. VMs include a complete guest OS. This makes containers much lighter — they start in seconds versus minutes for VMs.",analogy:"VMs are separate houses with their own plumbing and electrical (OS). Containers are apartments in the same building — shared infrastructure, separate living spaces.",realWorld:"Docker is the most common container platform. Containers deploy in seconds and consume far fewer resources than VMs, which is why web applications increasingly use them for scaling."},
+    {topic:"Cloud Models",q:"A company uses AWS EC2 virtual machines to host their custom application. They are responsible for patching the OS and configuring the firewall. Which cloud model is this?",options:["SaaS","PaaS","IaaS","DaaS"],answer:2,explanation:"IaaS (Infrastructure as a Service) delivers virtualized hardware — the customer manages OS, middleware, application, and data. The provider manages hardware, networking, and hypervisor.",analogy:"IaaS is renting an empty warehouse. The structure is there; you bring your own equipment, workers, and inventory. PaaS gives you shelves. SaaS is a fully stocked store.",realWorld:"AWS EC2, Azure VMs, and Google Compute Engine are IaaS. The shared responsibility model is critical — misconfigured VMs are the customer's problem, not the cloud provider's."},
+    {topic:"Cloud Models",q:"Microsoft 365 (Word, Excel, Teams, Outlook delivered via subscription) is an example of which cloud service model?",options:["IaaS","PaaS","SaaS","On-premises"],answer:2,explanation:"SaaS (Software as a Service) delivers complete applications over the internet. The customer uses the application and manages nothing underneath — no OS, no platform, no infrastructure.",analogy:"SaaS is ordering takeout. IaaS is buying an empty restaurant building. PaaS is renting a commercial kitchen. SaaS — you just order and eat.",realWorld:"Microsoft 365, Google Workspace, Salesforce, and Dropbox are SaaS. When a business moves from on-prem Exchange to Microsoft 365, they are switching email to SaaS."},
+    {topic:"Cloud Deployment",q:"A law firm needs cloud storage for sensitive client files. They require the infrastructure to be dedicated exclusively to their firm and not shared with any other organization. Which deployment model is MOST appropriate?",options:["Public cloud","Community cloud","Private cloud","Hybrid cloud"],answer:2,explanation:"A private cloud is dedicated to a single organization, providing the isolation required for sensitive data. Public cloud shares infrastructure with other organizations. Community cloud is shared between organizations with common requirements.",analogy:"Private cloud is renting an entire hotel for your company's exclusive use. Public cloud is a regular hotel shared with hundreds of other guests.",realWorld:"Healthcare, legal, and financial organizations often use private cloud to meet regulatory requirements. The trade-off is higher cost versus the isolation and control benefits."},
+    {topic:"Cloud Concepts",q:"Which cloud characteristic refers to the ability to automatically scale resources up during peak demand and back down when demand decreases?",options:["High availability","Scalability","Elasticity","Redundancy"],answer:2,explanation:"Elasticity is the ability to scale both up AND down automatically based on demand. Scalability refers to the ability to scale up. Elasticity includes the automatic, bidirectional nature of scaling.",analogy:"Elasticity is a rubber band — it stretches under load and snaps back when released. Pure scalability is a highway you can add lanes to, but the lanes stay permanently.",realWorld:"Auto-scaling groups in AWS and Azure scale-out during traffic spikes and scale-in during off-peak hours, optimizing cost. This is a key cloud cost management strategy."},
+    {topic:"Virtualization",q:"What is the purpose of a virtual machine snapshot in a virtualization environment?",options:["To permanently back up a VM to cold storage","To capture the complete state of a VM at a point in time for quick rollback","To migrate a VM between physical hosts","To monitor VM performance metrics"],answer:1,explanation:"A snapshot captures the complete state of a VM (memory, disk, configuration) at a specific moment. If changes cause problems, you can revert to the snapshot instantly.",analogy:"A VM snapshot is like a save game in a video game. Before a major boss fight (risky change), save your state. If you die (something breaks), reload and try differently.",realWorld:"Always take a snapshot before applying patches or making significant configuration changes to a production VM. Snapshots enable instant rollback if the change causes issues."},
+    {topic:"Cloud Security",q:"An organization wants visibility and control over employee use of unauthorized cloud services (shadow IT). Which cloud security tool provides this capability?",options:["CSPM","CASB","WAF","SIEM"],answer:1,explanation:"A CASB (Cloud Access Security Broker) sits between users and cloud services, providing visibility into cloud usage, enforcing access policies, and blocking unauthorized applications.",analogy:"A CASB is a corporate travel agency that handles all your cloud bookings — employees can't book outside approved services, and management sees every trip.",realWorld:"When employees use personal Dropbox or Gmail for work files, a CASB detects this and can block the upload or at minimum alert IT. This is a critical compliance control."},
+    {topic:"Virtualization",q:"A VM template is used instead of installing a fresh OS on each new VM. What is the PRIMARY advantage?",options:["Templates use less disk space than individual VMs","Templates enable consistent rapid deployment of pre-configured VMs","Templates automatically update all cloned VMs","Templates replace the need for backups"],answer:1,explanation:"VM templates (golden images) contain a pre-installed, pre-configured OS and standard applications. Deploying from a template takes minutes versus hours for a full OS install, and ensures consistency.",analogy:"A VM template is a cookie cutter. Press it into resources (hardware) and get identical, perfectly shaped VMs every time — fast, consistent, zero manual setup.",realWorld:"IT departments maintain templates for standard workstations, web servers, and database servers. New employee? Clone the workstation template. Done in 5 minutes."},
+    {topic:"Cloud",q:"What does the cloud shared responsibility model state about patching the hypervisor layer in an IaaS deployment?",options:["The customer patches the hypervisor","The cloud provider patches the hypervisor","Both share patching responsibility equally","A third-party vendor patches the hypervisor"],answer:1,explanation:"In the shared responsibility model, the cloud provider is responsible for the security OF the cloud (hardware, hypervisor, physical facilities). The customer is responsible for security IN the cloud (OS, applications, data).",analogy:"The landlord maintains the building's plumbing and structure. The tenant maintains what's inside their apartment. The hypervisor is the building's plumbing — it's the landlord's (cloud provider's) job.",realWorld:"'The cloud provider takes care of security' is a dangerous misconception. The provider secures the infrastructure; the customer secures their configuration, OS, applications, and data."},
+  ]},
+  {id:5,name:"Hardware & Network Troubleshooting",weight:"28%",color:C.d5,icon:"🔧",desc:"POST, BSOD, thermal issues, cable faults, WiFi troubleshooting",questions:[
+    {topic:"Methodology",q:"According to CompTIA's troubleshooting methodology, what should a technician do IMMEDIATELY after identifying a problem?",options:["Implement a solution","Establish a theory of probable cause","Document the findings","Test a solution"],answer:1,explanation:"Step 1 is Identify the problem. Step 2 is Establish a theory of probable cause — formulate a hypothesis based on the gathered information before taking any action.",analogy:"A doctor gathers symptoms (identify) and then hypothesizes a diagnosis (establish theory) before prescribing treatment. Prescribing before diagnosing is malpractice.",realWorld:"Jumping from 'the internet is down' directly to 'reinstall the OS' skips steps 2-4 and wastes time. Building a theory first focuses the troubleshooting effort."},
+    {topic:"POST",q:"A PC powers on but produces three short beeps and displays no image. What is the MOST likely hardware failure?",options:["CPU failure","RAM failure","GPU failure","Hard drive failure"],answer:1,explanation:"POST beep codes vary by BIOS manufacturer, but three short beeps commonly indicates a RAM failure. The specific meaning depends on the motherboard's BIOS — always cross-reference with the motherboard manual.",analogy:"POST beep codes are Morse code from the machine when it can't speak through the monitor. Three shorts is a common cry for help that points to RAM.",realWorld:"When a customer's PC beeps on boot, pull the motherboard manual or look up the beep code online. The beep sequence pinpoints the failing component before you even open Device Manager."},
+    {topic:"BSOD",q:"A Windows machine shows a BSOD with the stop code INACCESSIBLE_BOOT_DEVICE. What is the MOST likely cause?",options:["CPU overheating","Failing RAM","Storage controller driver issue or failed boot drive","Corrupt user profile"],answer:2,explanation:"INACCESSIBLE_BOOT_DEVICE means Windows cannot reach the drive containing the OS. Common causes: failed storage drive, incompatible storage controller driver after an update, or incorrect boot order in BIOS.",analogy:"INACCESSIBLE_BOOT_DEVICE is Windows trying to start a car with no engine — it can find the ignition (bootloader) but the engine (boot drive) is missing or unreachable.",realWorld:"After a Windows Update, this BSOD sometimes appears because a storage controller driver was replaced with an incompatible version. WinRE can often roll back the driver."},
+    {topic:"Tools",q:"A technician needs to test the full path a network packet takes from a workstation to a remote server and identify which hop is causing high latency. Which command is BEST?",options:["ping","nslookup","tracert (traceroute)","ipconfig /all"],answer:2,explanation:"tracert (Windows) / traceroute (Linux/Mac) sends packets with incrementing TTL values, revealing each router hop and its response time along the path to the destination.",analogy:"tracert is step-by-step package tracking. Instead of knowing the package arrived (or didn't), you see every city it passed through and how long each leg took.",realWorld:"When users report slow access to a cloud application, tracert shows whether latency is at their ISP, the cloud provider's network, or the destination. It pinpoints the problem hop."},
+    {topic:"Tools",q:"Which tool is used to test twisted-pair cable against industry specifications, measuring parameters such as attenuation, crosstalk, and wire map?",options:["Toner probe","Cable certifier","OTDR","Multimeter"],answer:1,explanation:"A cable certifier (cable qualification tester) measures whether a cable meets category specifications (Cat5e, Cat6, etc.) by testing attenuation, NEXT/FEXT crosstalk, insertion loss, and wire map.",analogy:"A cable certifier is a complete physical for copper cable. It doesn't just check if the cable works — it checks if it passes spec for the rated speed and distance.",realWorld:"After running new cable drops, a cable certifier provides the documentation that the installation meets spec. Failed runs get recrimped or replaced before the project is signed off."},
+    {topic:"Wireless",q:"A wireless client shows excellent signal strength but achieves very slow actual throughput. What is the MOST likely cause?",options:["IP address conflict","Channel interference or congestion","DNS misconfiguration","Damaged fiber backbone"],answer:1,explanation:"High signal with poor throughput is the classic symptom of RF interference or channel congestion. Signal strength measures how loud the AP is; throughput measures how clearly you can communicate — interference degrades throughput without reducing signal strength.",analogy:"Signal is how loud the radio station is. Throughput is how clearly you hear the words. Interference makes the station loud but unintelligible.",realWorld:"Use a Wi-Fi analyzer app to check channel utilization. If 10 neighboring networks are all on channel 6, switching to channel 1 or 11 will dramatically improve throughput."},
+    {topic:"Tools",q:"A user reports their PC is very slow since a software installation yesterday. Which Task Manager tab is MOST useful for diagnosing the cause?",options:["Networking","Users","Startup","Services"],answer:2,explanation:"The Startup tab shows all programs that launch at boot with their startup impact (Low/Medium/High). A newly installed application that added itself to startup and has High impact is the first suspect.",analogy:"Startup tab is the guest list for your computer's morning routine. A new app that invited itself to the party and makes everyone late is easy to spot and remove.",realWorld:"Disabling startup items in Task Manager is safe and reversible. It is one of the fastest and most effective performance improvements for consumer PCs."},
+    {topic:"Storage",q:"A hard drive's S.M.A.R.T. status utility shows reallocated sector count increasing daily. The drive has not failed yet. What action should be taken?",options:["Ignore — S.M.A.R.T. warnings are rarely accurate","Run chkdsk /f to fix the bad sectors","Back up data immediately and plan drive replacement","Defragment the drive to redistribute data"],answer:2,explanation:"S.M.A.R.T. (Self-Monitoring, Analysis, and Reporting Technology) data showing increasing reallocated sectors indicates the drive is actively failing. Reallocated sectors are replaced bad sectors — a rising count means the drive is finding more bad spots.",analogy:"Reallocated sectors are like a road crew patching potholes faster than they can keep up. The road still functions, but the rate of new potholes signals structural failure ahead.",realWorld:"S.M.A.R.T. data doesn't mean the drive has failed — it means it WILL fail. Back up data and order a replacement drive immediately. Do not wait for the 'click of death.'"},
+    {topic:"Methodology",q:"A technician fixes a user's connectivity issue. Before closing the ticket, what should be done next according to CompTIA's methodology?",options:["Immediately start the next ticket","Verify full system functionality and then document the findings","Call the user's manager to report the fix","Reboot the user's computer a second time"],answer:1,explanation:"After implementing a fix (Step 4), the methodology requires Verifying full system functionality (Step 5) and then Documenting findings (Step 6). Closing a ticket without verification risks missing a secondary problem.",analogy:"After fixing a leaky pipe, you turn the water on and watch for new leaks before patching the wall. Assume nothing — verify everything.",realWorld:"Verification prevents re-opens. Documentation enables faster resolution next time the same issue occurs and contributes to the knowledge base."},
+    {topic:"Tools",q:"A technician suspects failing RAM is causing random BSOD errors on a Windows PC. Which tool provides the most thorough memory test independent of the operating system?",options:["Windows Memory Diagnostic","MemTest86 (bootable USB)","Device Manager","Performance Monitor"],answer:1,explanation:"MemTest86 boots from a USB drive before any OS loads, testing RAM thoroughly without OS interference. Windows Memory Diagnostic runs within Windows and is less comprehensive — it can miss errors that MemTest86 catches.",analogy:"Testing RAM with Windows Memory Diagnostic is like using a broken scale to test if the scale is broken. MemTest86 uses an independent reference that doesn't rely on the potentially broken hardware.",realWorld:"Run MemTest86 for at least 2 full passes (several hours) for reliable results. Intermittent RAM errors may only appear after multiple passes through the full test sequence."},
+  ]},
+  {id:6,name:"Operating Systems",weight:"31%",color:C.gold,icon:"💻",desc:"Windows, macOS, Linux, file systems, command line, registry",questions:[
+    {topic:"Windows Editions",q:"A technician needs to join a Windows workstation to an Active Directory domain. Which Windows edition is the MINIMUM requirement?",options:["Windows 11 Home","Windows 11 Pro","Windows 11 SE","Any Windows edition supports domain join"],answer:1,explanation:"Windows Pro (and Enterprise/Education) supports domain join and Group Policy management. Windows Home does not support domain join — it will not present the option in Settings or System Properties.",analogy:"Windows Home is a personal apartment — your own rules. Windows Pro has a corporate-compatible lock system (domain join) that the building management (Active Directory) can control.",realWorld:"Before deploying a new workstation to a domain environment, always verify it's Windows Pro or higher. Discovering it's Home after configuration is a frustrating waste of time."},
+    {topic:"Windows Tools",q:"A technician runs sfc /scannow and receives the message 'Windows Resource Protection found corrupt files but was unable to fix some of them.' What is the correct next step?",options:["Reinstall Windows immediately","Run DISM /Online /Cleanup-Image /RestoreHealth, then rerun sfc /scannow","Run chkdsk /f /r","Perform a System Restore"],answer:1,explanation:"DISM repairs the Windows component store that sfc uses as its source material. When sfc cannot fix files, it often means the component store itself is damaged. DISM fixes the source, then sfc can repair the files.",analogy:"sfc is a repair worker who needs parts from a warehouse. If the warehouse (component store) is damaged, DISM restocks it so sfc can finally do its job.",realWorld:"DISM first, then sfc — this is the correct order for Windows repair. Running sfc alone after it failed is repeating a failed step. DISM changes the outcome."},
+    {topic:"Windows Tools",q:"Which Windows command-line tool scans and repairs file system errors and bad sectors on a drive?",options:["sfc","DISM","chkdsk","defrag"],answer:2,explanation:"chkdsk (Check Disk) scans the file system for errors and optionally repairs them (/f) and scans for bad sectors (/r). sfc repairs protected system files. DISM repairs the component store. defrag defragments mechanical drives.",analogy:"chkdsk is a building inspection that checks for structural damage (bad sectors) and code violations (file system errors) and can repair what it finds.",realWorld:"chkdsk /f /r on the system drive runs at next reboot (can't check a drive in use). It's a standard step when a user reports file system errors or the drive shows S.M.A.R.T. warnings."},
+    {topic:"Windows",q:"A user logs on and receives the message 'You have been logged on with a temporary profile.' Their personal files and desktop are missing. What is MOST likely?",options:["The hard drive failed","The user's Windows profile is corrupted or the ProfileList registry key is damaged","Windows needs to be reinstalled","The user's password expired"],answer:1,explanation:"A temporary profile appears when Windows cannot load the user's actual profile, typically due to a corrupted profile folder or a damaged entry in HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\ProfileList.",analogy:"It's like arriving at a hotel and the system can't find your reservation — they give you a generic room with none of your luggage in it.",realWorld:"The fix: back up data from the C:\\Users\\[username].bak folder, delete or rename the damaged ProfileList registry entry, log in to create a fresh profile, then migrate data back."},
+    {topic:"macOS",q:"A Mac user wants to ensure their internal SSD is encrypted so that data is unreadable if the drive is removed. Which macOS feature provides this?",options:["Time Machine","FileVault","Spotlight","Migration Assistant"],answer:1,explanation:"FileVault is macOS's full-disk encryption feature, equivalent to BitLocker on Windows. It encrypts the entire startup volume using XTS-AES-128 with a 256-bit key.",analogy:"FileVault is a time-lock safe built into your Mac's drive. Without the decryption key (your login password or recovery key), the data is unreadable even if physically extracted.",realWorld:"FileVault is enabled by default on Apple Silicon Macs. For Intel Macs, IT departments should enable it via MDM (Jamf, Intune) and escrow the recovery key for corporate devices."},
+    {topic:"Linux",q:"A Linux administrator wants to change the permissions on a file so the owner has read/write/execute, the group has read/execute, and others have read-only access. Which chmod command is correct?",options:["chmod 644 file","chmod 755 file","chmod 777 file","chmod 600 file"],answer:1,explanation:"chmod 755: 7=rwx (owner), 5=r-x (group), 5=r-x (others). 644 is rw-r--r--. 777 is rwxrwxrwx (all access). 600 is rw------- (owner only).",analogy:"Unix permissions are like a three-digit combination where each digit is the sum of read(4), write(2), execute(1). 755 = 4+2+1, 4+1, 4+1 = owner runs it, others can run but not modify.",realWorld:"755 is the standard permission for executable scripts and programs. 644 is standard for text files. 600 is for private key files (SSH keys must be 600 or SSH refuses to use them)."},
+    {topic:"File Systems",q:"A technician needs to format a USB drive that must be compatible with both Windows and macOS AND must support files larger than 4GB. Which file system should be used?",options:["NTFS","FAT32","exFAT","ext4"],answer:2,explanation:"exFAT was designed for flash drives — it is cross-platform compatible (Windows, macOS, Linux) and has no file size or volume size limits, overcoming FAT32's 4GB file size limitation.",analogy:"FAT32 is a carry-on bag with a 4GB weight limit. exFAT is the same carry-on with no weight limit. NTFS is a full-sized suitcase that some airports (macOS) only let you read, not pack.",realWorld:"Format USB drives as exFAT when they need to transfer large files between Windows and macOS. NTFS is readable on macOS but not writable without third-party software."},
+    {topic:"Windows",q:"After installing a new device driver, a Windows PC experiences system instability. The technician wants to remove the new driver and restore the previous version without reinstalling Windows. Where is this option?",options:["Control Panel > Programs","Device Manager > Driver tab > Roll Back Driver","System Restore","Registry Editor > HKLM\\Drivers"],answer:1,explanation:"Device Manager includes a 'Roll Back Driver' button on the Driver tab for each device. This restores the previously installed driver version if Windows saved it.",analogy:"Roll Back Driver is the undo button for driver installations. Windows keeps a copy of the old driver so you can step back without a full reinstall.",realWorld:"Roll Back Driver is grayed out if no previous driver was saved. In that case, uninstall the current driver in Safe Mode, then install a stable version from the manufacturer's website."},
+    {topic:"Windows",q:"A user needs to check which programs launch at Windows startup and want to disable one that is slowing boot time. Which built-in tool is FASTEST to use?",options:["msconfig","Task Manager > Startup tab","Registry Editor","Services.msc"],answer:1,explanation:"Task Manager's Startup tab shows all startup programs with their startup impact rating (Low/Medium/High) and enables disabling them with a right-click. It is the fastest and safest built-in tool for this purpose.",analogy:"Task Manager Startup tab is the bouncer for your computer's morning routine. You see who's trying to come to the startup party and can deny entry to anyone slowing things down.",realWorld:"This is a first-response fix for slow boot times. Disable high-impact items that aren't needed at startup (chat apps, cloud sync, manufacturer utilities). Reversible — easy to re-enable."},
+    {topic:"Windows",q:"A technician uses the command 'net user username /domain' to look up a user's account. Which protocol and port is this command using to query Active Directory?",options:["HTTP port 80","LDAP port 389","DNS port 53","RDP port 3389"],answer:1,explanation:"Active Directory queries use LDAP (Lightweight Directory Access Protocol) on port 389 (or LDAPS on 636 for encrypted). 'net user /domain' queries the domain controller via LDAP.",analogy:"LDAP is the language Active Directory speaks. Port 389 is the door you knock on to ask directory questions. It's like calling the HR department — you need the right phone number (port) and language (protocol).",realWorld:"When Group Policy or user lookups fail with network errors, verify LDAP port 389 is not blocked by a firewall between the workstation and domain controller."},
+  ]},
+  {id:7,name:"Security",weight:"25%",color:C.purple,icon:"🔒",desc:"Malware, social engineering, encryption, physical security, access control",questions:[
+    {topic:"Malware",q:"Which malware type disguises itself as legitimate software (such as a game or utility) but contains hidden malicious functionality?",options:["Virus","Worm","Trojan","Ransomware"],answer:2,explanation:"A Trojan (Trojan horse) masquerades as legitimate software. Unlike viruses and worms, Trojans do not self-replicate — they rely on the user to install them voluntarily.",analogy:"A Trojan is a gift horse with a bomb inside. The user brings the enemy inside the gates (installs the software) without realizing the true nature.",realWorld:"Fake antivirus software, cracked games, and pirated software are common Trojan delivery mechanisms. The A+ exam specifically tests the definition that Trojans do NOT self-replicate."},
+    {topic:"Social Engineering",q:"An attacker sends an email appearing to be from the company's bank, asking users to click a link and verify their credentials. This is an example of:",options:["Vishing","Spear phishing","Phishing","Tailgating"],answer:2,explanation:"Phishing is a mass email attack designed to deceive recipients into revealing credentials or installing malware. It targets anyone who receives it without specific research. Spear phishing uses personalized information about the target.",analogy:"Phishing is trawling with a wide net — cast it everywhere and see who bites. Spear phishing is targeting a specific fish you've already spotted.",realWorld:"The A+ exam tests the distinction between phishing (untargeted mass email) and spear phishing (targeted, personalized). Both are social engineering; the scope differentiates them."},
+    {topic:"Encryption",q:"Which Windows feature provides full-disk encryption for the entire operating system volume?",options:["EFS (Encrypting File System)","BitLocker","Windows Defender","UAC"],answer:1,explanation:"BitLocker encrypts the entire volume including the OS, boot files, and all data. EFS encrypts individual files and folders but not the boot volume. BitLocker requires TPM (Trusted Platform Module) for full functionality.",analogy:"EFS is a locked filing cabinet inside an office. BitLocker is locking the entire building and encrypting the foundation — even someone who removes the hard drive gets nothing.",realWorld:"BitLocker with TPM provides transparent encryption — authorized users don't notice it. The 48-digit recovery key must be backed up (to AD or Azure AD) or data may be permanently lost."},
+    {topic:"Physical Security",q:"An organization wants to prevent unauthorized personnel from following an authorized employee through a secure door. Which physical control addresses this?",options:["Smart card reader","Security camera","Mantrap (access control vestibule)","Cable lock"],answer:2,explanation:"A mantrap (or access control vestibule) uses two interlocking doors — the second door cannot open until the first is closed and the person is authenticated. This physically prevents tailgating.",analogy:"A mantrap is an airlock between the outside and secure area. Only one door can be open at a time — one person at a time, authenticated before entry.",realWorld:"Data centers and pharmacies use mantraps to prevent tailgating. Security cameras detect but don't prevent tailgating — a mantrap actively stops it."},
+    {topic:"Data Destruction",q:"A company is donating old laptops to a charity. IT must ensure no recoverable data remains. Which method BEST ensures data cannot be recovered from the HDDs?",options:["Quick format the drives","Perform a single-pass overwrite with zeros","Perform a multi-pass DoD 5220.22-M wipe or use a certified data destruction service","Delete the user profiles and empty the Recycle Bin"],answer:2,explanation:"Deleting files and quick formatting only removes the file system index — data remains on the drive and is easily recoverable. A multi-pass overwrite (DoD standard) or certified destruction ensures data is unrecoverable.",analogy:"Quick format is erasing a whiteboard with a damp cloth — a better eraser recovers the marks. DoD wipe is sanding the whiteboard surface down — nothing left to read.",realWorld:"For HDDs, a certified wipe tool (DBAN, Blancco) meeting DoD 5220.22-M standard is appropriate for donation scenarios. For SSDs, use the manufacturer's secure erase tool or physical destruction."},
+    {topic:"Access Control",q:"A technician configures a standard user account for a new employee rather than an administrator account. This follows which security principle?",options:["Separation of duties","Need to know","Principle of least privilege","Defense in depth"],answer:2,explanation:"The principle of least privilege states that every user should have only the minimum permissions required for their job. A standard user account restricts what the employee can install or change, reducing the attack surface.",analogy:"Least privilege is a hotel key card that opens your room and the gym — not the server room, the kitchen, and every other guest's room.",realWorld:"Admin rights on day-to-day user accounts are a major attack vector. If a standard user's credentials are phished, the attacker has limited access. An admin account credential gives them the keys to the kingdom."},
+    {topic:"Security",q:"Which authentication factor type does a fingerprint scanner represent?",options:["Something you know","Something you have","Something you are","Somewhere you are"],answer:2,explanation:"Biometrics (fingerprint, retina, face scan, voice) are 'something you are' — they are inherent physical characteristics. 'Something you know' is passwords/PINs. 'Something you have' is tokens/smart cards.",analogy:"Your fingerprint is you. A password is something you memorized. A key card is something you carry. Biometrics can't be forgotten or left at home.",realWorld:"Multi-factor authentication combines at least two different factor TYPES. A fingerprint + a PIN is MFA. Two passwords are not MFA — same factor type."},
+    {topic:"Security",q:"A user receives a text message appearing to be from their bank stating their account is locked and they must click a link to verify their identity. This is an example of:",options:["Vishing","Phishing","Smishing","Tailgating"],answer:2,explanation:"Smishing is SMS-based phishing. Vishing uses voice calls. Email phishing uses email. Smishing uses text messages to deliver malicious links or prompt credential disclosure.",analogy:"Smishing, vishing, and phishing are the same con — different delivery channels. Email = phishing. Voice = vishing. SMS = smishing.",realWorld:"Smishing increased dramatically with the rise of smartphone adoption. Banks never send unsolicited texts asking you to click a link and enter credentials — that is always smishing."},
+    {topic:"Windows Security",q:"A pop-up appears asking for administrator credentials when a standard user tries to install software. This prompt is generated by which Windows security feature?",options:["Windows Defender","BitLocker","User Account Control (UAC)","Windows Firewall"],answer:2,explanation:"UAC (User Account Control) intercepts actions that require elevated privileges and prompts for administrator credentials before allowing them. This prevents unauthorized software installation and system changes.",analogy:"UAC is a bouncer at the door of system-level changes. Even if you're inside the building (logged in), the bouncer checks your credentials before letting you into the VIP area (admin actions).",realWorld:"UAC prompts are a security feature, not an annoyance. Users should never approve UAC prompts for unexpected actions or when they didn't initiate the installation themselves."},
+    {topic:"Security",q:"Which physical security control prevents a laptop from being physically removed from a desk?",options:["Smart card authentication","BitLocker encryption","Kensington cable lock","Privacy screen filter"],answer:2,explanation:"A cable lock (Kensington lock) physically secures a laptop to a fixed object via a metal cable through the laptop's lock slot. It prevents opportunistic theft but not a determined attacker with tools.",analogy:"A cable lock is a bicycle lock for your laptop. It stops the casual thief but not someone with bolt cutters — it's a deterrent, not an absolute barrier.",realWorld:"Cable locks are standard in open office environments, trade show booths, and hotel business centers. BitLocker protects data if the laptop is stolen; a cable lock prevents the theft itself."},
+  ]},
+  {id:8,name:"Software Troubleshooting",weight:"22%",color:"#e63946",icon:"🐛",desc:"Boot failures, driver issues, malware removal, application errors",questions:[
+    {topic:"Boot Failures",q:"A Windows PC displays 'Operating System Not Found' on boot. The hard drive is confirmed functional. What is the MOST likely cause?",options:["Corrupt user profile","Missing boot files or incorrect boot order in BIOS/UEFI","Failed Windows Update","Virus in the browser cache"],answer:1,explanation:"'OS Not Found' typically means the BIOS/UEFI cannot find a bootable device. This is caused by incorrect boot order, damaged MBR/boot sector, or a disconnected/failed drive.",analogy:"'OS Not Found' is like starting a car with the key not recognizing an engine — the ignition works but it can't find what to start.",realWorld:"First, check BIOS boot order. If the correct drive is listed but still fails, boot to WinRE via installation media and run Startup Repair or bootrec /fixmbr + bootrec /rebuildbcd."},
+    {topic:"Boot Failures",q:"Which Windows Recovery Environment tool automatically diagnoses and repairs common boot problems such as missing boot files?",options:["System Restore","Startup Repair","Reset this PC","DISM /RestoreHealth"],answer:1,explanation:"Startup Repair is an automated WinRE tool that diagnoses and fixes common boot issues including missing or corrupted boot files, bootloader problems, and some driver issues.",analogy:"Startup Repair is the car mechanic's computerized diagnostic tool. You connect it, press scan, and it identifies and fixes known problems automatically before any manual work begins.",realWorld:"Startup Repair should always be the first WinRE tool attempted for boot failures. It handles most common scenarios automatically. Manual bootrec commands are the next step if Startup Repair cannot resolve the issue."},
+    {topic:"Malware Removal",q:"A PC is confirmed infected with malware that is running actively. What is the FIRST step in the remediation process?",options:["Run antivirus from within Windows","Perform a System Restore to yesterday","Quarantine the system by disconnecting it from the network","Delete suspicious files from the Program Files folder"],answer:2,explanation:"Containment is the first priority. Disconnecting the infected machine from the network prevents the malware from spreading laterally, communicating with command-and-control servers, or exfiltrating data.",analogy:"When you discover a fire, close the doors before grabbing the extinguisher. Network isolation is closing the fire doors — contain the spread before fighting it.",realWorld:"CompTIA's malware removal process: 1) Identify, 2) Quarantine, 3) Disable System Restore, 4) Remediate in Safe Mode, 5) Schedule full scans, 6) Re-enable System Restore, 7) Educate user."},
+    {topic:"Driver Issues",q:"After a graphics driver update, a Windows PC freezes on every boot. What is the fastest recovery method?",options:["Reinstall Windows","Boot to Safe Mode and use Device Manager to roll back the graphics driver","Run sfc /scannow","Restore from backup"],answer:1,explanation:"Safe Mode loads minimal drivers, bypassing the problematic graphics driver. From Device Manager in Safe Mode, 'Roll Back Driver' restores the previous working version without reinstalling Windows.",analogy:"Safe Mode is the skeleton crew mode — the minimum to keep the ship running. Once in Safe Mode, you can safely remove the bad crew member (driver).",realWorld:"Safe Mode is accessed by pressing F8 during boot (legacy) or holding Shift while clicking Restart in Windows 10/11. Know both methods for the exam."},
+    {topic:"Application Issues",q:"A 32-bit application is installed on a 64-bit Windows 11 machine. In which directory will the application's files be located?",options:["C:\\Program Files\\","C:\\Program Files (x86)\\","C:\\Windows\\System32\\","The application cannot run on 64-bit Windows"],answer:1,explanation:"64-bit Windows uses two Program Files directories: C:\\Program Files\\ for 64-bit native applications and C:\\Program Files (x86)\\ for 32-bit applications running through the WOW64 compatibility layer.",analogy:"Two garages in one building: the large garage (Program Files) parks full-size trucks (64-bit apps); the compact garage (x86) parks smaller cars (32-bit apps).",realWorld:"When troubleshooting 32-bit application DLL errors on a 64-bit system, check both Program Files directories. The WOW64 registry redirection (Wow6432Node) also applies."},
+    {topic:"Performance",q:"A user reports their PC became noticeably slower after installing several applications over the past month. Which action is FASTEST and SAFEST to improve performance?",options:["Reinstall Windows","Upgrade the RAM","Disable unnecessary startup programs in Task Manager","Replace the hard drive with an SSD"],answer:2,explanation:"Disabling startup programs in Task Manager's Startup tab is free, fast, reversible, and addresses the most common cause of software-induced slowdown — programs that load at boot and continue running.",analogy:"Disabling startup programs is like telling uninvited houseguests to leave. No expense, no rebuilding — just stop letting them in at startup.",realWorld:"This is the first-response fix for a user who complains their PC is slow 'since I installed X.' Check Startup tab first before recommending hardware upgrades."},
+    {topic:"Windows Errors",q:"A user reports an application is crashing repeatedly. Which Windows tool provides detailed event logs that can identify the error code and source of the crash?",options:["Task Manager","Resource Monitor","Event Viewer","Device Manager"],answer:2,explanation:"Event Viewer logs system, application, and security events with detailed error codes and descriptions. Application crashes generate entries in the Application log that identify the faulting module and error code.",analogy:"Event Viewer is your computer's black box flight recorder. After a crash, you review the log to find the exact moment of failure and what caused it.",realWorld:"Event Viewer > Windows Logs > Application. Look for Error entries with red X icons around the time of the crash. The faulting module name tells you whether it's the app itself, a DLL, or a driver."},
+    {topic:"Profile Issues",q:"After a Windows update, a user is logged in with a temporary profile and all personal data appears missing from the desktop. Where is the original profile data most likely located?",options:["It has been permanently deleted","C:\\Windows\\Backup\\","C:\\Users\\[username].bak or C:\\Users\\[username] with a corrupted registry entry","C:\\ProgramData\\"],answer:2,explanation:"When Windows cannot load a profile and creates a temporary one, the original profile folder typically still exists on disk — either renamed with .bak or intact but with a corrupted entry in the ProfileList registry key.",analogy:"Your belongings are still in your apartment — the lobby just lost your room key (registry entry). Find the key or make a copy, and you get back into your room.",realWorld:"Recovery procedure: copy data from the .bak folder, delete the bad ProfileList entry in regedit, log in to create a fresh profile, restore data. All data is preserved — no reinstall needed."},
+    {topic:"Malware",q:"A user's browser homepage has been changed without permission, new toolbars appeared, and searches redirect to unfamiliar sites. Which malware type BEST describes this?",options:["Ransomware","Keylogger","Browser hijacker/adware","Rootkit"],answer:2,explanation:"Browser hijackers and adware modify browser settings (homepage, search engine, toolbars) without consent to redirect traffic for advertising revenue. They are generally not destructive but are persistent and disruptive.",analogy:"A browser hijacker is a door-to-door salesman who moves into your house and rearranges your furniture to promote their products. Annoying, not dangerous, but hard to remove.",realWorld:"Common removal steps: check browser extensions, remove suspicious programs from Control Panel, run Malwarebytes, reset browser settings. Most browser hijackers arrive bundled with free software installers."},
+    {topic:"Boot Failures",q:"A Windows 10 machine fails to boot and shows a blue screen immediately on startup. After restarting, it enters Automatic Repair mode. What is the NEXT step?",options:["Purchase a new hard drive","Use the WinRE Startup Repair tool, then check Event Viewer logs if it fails","Perform a clean Windows install immediately","Remove all installed applications"],answer:1,explanation:"WinRE Startup Repair is the first automated tool to try. If it resolves the issue, the system boots. If Startup Repair fails, its log (C:\\Windows\\System32\\Logfiles\\Srt\\SrtTrail.txt) provides clues for manual diagnosis.",analogy:"Automatic Repair is the hospital ER — it handles the most common emergencies. Startup Repair is the triage nurse. Only after triage fails do you escalate to surgery (manual repair) or worse (reinstall).",realWorld:"Automatic Repair mode often loops or fails to fix the issue. Running Startup Repair manually from WinRE (via Command Prompt if needed) gives more control and better diagnostics."},
+  ]},
+  {id:9,name:"Operational Procedures",weight:"22%",color:"#4cc9f0",icon:"📋",desc:"Change management, documentation, safety, compliance, communication",questions:[
+    {topic:"Change Management",q:"Before implementing a major server configuration change during a maintenance window, what document must be prepared to describe actions if the change causes an outage?",options:["Risk Register","Change Advisory Board charter","Rollback plan","Business Impact Analysis"],answer:2,explanation:"A rollback plan (back-out plan) documents the exact steps to reverse a change and restore the previous working state. It is a required component of a change request and must be ready before the maintenance window begins.",analogy:"A rollback plan is the emergency exit route posted before entering a building that might catch fire. You plan the exit before you go in, not after.",realWorld:"Change requests without rollback plans should be rejected by the CAB. In the field, a rollback plan transforms a failed 2-hour maintenance window from a panic into a structured recovery."},
+    {topic:"Documentation",q:"Which documentation type provides step-by-step instructions for performing a specific IT task in a consistent, repeatable way?",options:["Network diagram","SLA (Service Level Agreement)","SOP (Standard Operating Procedure)","Change request form"],answer:2,explanation:"A Standard Operating Procedure (SOP) documents specific tasks step-by-step to ensure consistent execution regardless of which technician performs them.",analogy:"An SOP is a recipe. Anyone who follows it correctly produces the same result. Without a recipe, every cook makes a different dish.",realWorld:"SOPs for common tasks (new user setup, server patching, incident response) enable consistent service delivery and make onboarding new technicians much faster."},
+    {topic:"Safety",q:"When working inside a computer, which precaution is MOST important to prevent damage from electrostatic discharge (ESD)?",options:["Wear rubber-soled shoes","Use an anti-static wrist strap connected to the chassis ground","Work in a carpeted room","Keep the components in their anti-static bags while installing"],answer:1,explanation:"An anti-static wrist strap equalizes the technician's charge with the equipment's ground, preventing ESD from damaging components. This is the single most effective ESD prevention measure during component installation.",analogy:"ESD protection is like a lightning rod — it gives static charge a safe path to ground before it can strike sensitive components.",realWorld:"The A+ exam places heavy emphasis on ESD prevention. Always attach the wrist strap before touching any component. Anti-static mats provide additional protection on the work surface."},
+    {topic:"Environmental",q:"A server room's temperature monitoring shows temperatures exceeding 85°F (29°C) during peak hours. What is the PRIMARY corrective action?",options:["Install UPS units on all servers","Upgrade to more power-efficient servers","Add dedicated HVAC capacity or improve hot/cold aisle containment","Install additional surge protectors"],answer:2,explanation:"Excessive heat directly causes thermal shutdowns and hardware failure. ASHRAE recommends server room temperatures between 64-80°F (18-27°C). HVAC capacity or hot/cold aisle containment addresses the root cause.",analogy:"Cooling a server room is like air conditioning a kitchen — the equipment generates significant heat and needs dedicated cooling, not just opening a window.",realWorld:"Hot aisle/cold aisle containment is often the first cost-effective step: align servers so cold air intakes face one aisle and hot air exhausts face another, preventing hot air recirculation."},
+    {topic:"Compliance",q:"A healthcare organization disposes of workstations that processed patient records. Which federal regulation mandates secure media disposal procedures for this data?",options:["PCI-DSS","GDPR","SOX","HIPAA"],answer:3,explanation:"HIPAA (Health Insurance Portability and Accountability Act) governs the protection of Protected Health Information (PHI) in the US, including requirements for secure disposal of media containing PHI.",analogy:"HIPAA is the rulebook for protecting patient information — from creation to destruction. Tossing a drive with patient records in the trash is a HIPAA violation with significant fines.",realWorld:"HIPAA requires PHI on disposed media be rendered unreadable and unrecoverable. NIST 800-88 sanitization methods (purge/destroy) satisfy this requirement. Proper disposal records should be maintained."},
+    {topic:"Ticketing",q:"A user reports that their laptop battery is not charging. This should be logged in the ticketing system as which type of record?",options:["Problem record","Change request","Incident ticket","Service request"],answer:2,explanation:"An incident is an unplanned interruption or degradation of an IT service. A non-charging battery is an unplanned hardware issue — it's an incident. A service request is a planned, pre-approved request like 'Please install software.'",analogy:"An incident is the car that broke down. A service request is scheduled maintenance. A problem is the investigation into why cars on this route keep breaking down.",realWorld:"Correctly categorizing tickets ensures proper SLA timers, priority levels, and response procedures. Miscategorized tickets cause SLA breaches and incorrect resource allocation."},
+    {topic:"Backups",q:"A company runs a full backup every Sunday night and differential backups Monday through Saturday. The server fails Saturday afternoon. How many backup sets are needed for a full restore?",options:["Only Sunday's full backup","Sunday's full backup plus Friday's differential only","Sunday's full backup plus all differentials Monday through Friday","All seven backup sets"],answer:1,explanation:"Differential backups store all data changed since the last FULL backup. Unlike incremental backups (which build on each other), you only need the last full + the most recent differential for a complete restore.",analogy:"A differential backup is a growing snowball that starts fresh each week after the full backup. By Friday, it contains Monday+Tuesday+Wednesday+Thursday+Friday's changes — all in one set.",realWorld:"Differential backups simplify restore — only two backup sets needed (full + latest differential). The trade-off: differential backup size grows through the week. Incremental is smaller but slower to restore."},
+    {topic:"Communication",q:"While repairing a user's computer, the technician discovers personal photos unrelated to the repair issue. What is the professionally appropriate action?",options:["Review the photos to ensure they are not malware-related","Mention the photos to the user's manager","Ignore the photos and focus only on the task — do not disclose or access personal data","Report the photos to IT security automatically"],answer:2,explanation:"Technicians have a professional and often legal obligation to respect user privacy. Personal data encountered during repair should be ignored and not accessed, discussed, or disclosed unless it presents a specific security risk.",analogy:"A plumber fixing your kitchen sink doesn't comment on your refrigerator contents. A technician accessing your computer for a specific repair has no business touching anything else.",realWorld:"Accessing files outside the scope of a repair without authorization may violate privacy laws and company policy. The A+ exam specifically tests professionalism and respect for user privacy."},
+    {topic:"Safety",q:"A technician is replacing a CRT monitor. Before opening the chassis, what is the MOST important safety precaution?",options:["Wear anti-static wrist strap","Ensure the monitor is fully discharged — CRT capacitors retain lethal voltage even when unplugged","Work only in a well-ventilated area","Replace the monitor rather than attempting repair"],answer:1,explanation:"CRT monitors contain capacitors that store extremely high voltage (up to 25,000 volts) even after being unplugged for extended periods. Discharging the capacitor before working inside is essential to prevent electrocution.",analogy:"A CRT capacitor is like a charged defibrillator paddle — it can discharge a lethal shock with no warning. Unplug it a week ago? It might still have enough charge to kill.",realWorld:"The A+ exam includes CRT safety as a required topic. In practice, CRT monitors are largely obsolete, but the exam still tests this because the safety principle (capacitor charge after power removal) applies to other devices too."},
+    {topic:"Documentation",q:"A company requires technicians to document the hardware configuration of all systems for inventory and troubleshooting purposes. Which Windows tool provides detailed hardware information that can be exported?",options:["Task Manager","Event Viewer","System Information (msinfo32)","Device Manager"],answer:2,explanation:"msinfo32 (System Information) provides a comprehensive hardware and software inventory including processor, RAM, installed devices, drivers, and system configuration. It can export to a text file for documentation.",analogy:"msinfo32 is the VIN plate for your computer — it contains all the specs and component details in one place, easily printable for records.",realWorld:"Running msinfo32 and saving the output as a baseline document is a recommended first step when taking over management of a new system. It provides a reference for future troubleshooting and compliance audits."},
+  ]},
+];
+
+const S={
+  app:{minHeight:"100vh",background:C.bg,fontFamily:"'Courier New',monospace",color:C.text,overflowX:"hidden"},
+  scan:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,180,216,0.012) 2px,rgba(0,180,216,0.012) 4px)",pointerEvents:"none",zIndex:1},
+  wrap:{maxWidth:740,margin:"0 auto",padding:"20px 16px",position:"relative",zIndex:2},
+  divider:{height:1,background:"linear-gradient(90deg,transparent,#00b4d8,transparent)",margin:"20px 0"},
+  card:(border=C.border)=>({border:`1px solid ${border}`,borderRadius:10,padding:"18px 20px",background:C.surface,marginBottom:14}),
+  label:(color=C.dim)=>({fontSize:10,letterSpacing:3,color,textTransform:"uppercase",marginBottom:6}),
+  btn:(color,fill)=>({padding:"9px 20px",borderRadius:6,border:`1px solid ${color}`,background:fill?color:"transparent",color:fill?C.bg:color,cursor:"pointer",fontSize:11,letterSpacing:2,fontFamily:"inherit",fontWeight:"bold",textTransform:"uppercase",transition:"all 0.15s"}),
+  optionBtn:(state,color)=>({display:"block",width:"100%",textAlign:"left",padding:"12px 15px",marginBottom:9,borderRadius:6,border:`1px solid ${state==="correct"?C.green:state==="wrong"?C.red:state==="selected"?color:C.border}`,background:state==="correct"?`rgba(${hexRgb(C.green)},0.1)`:state==="wrong"?`rgba(${hexRgb(C.red)},0.1)`:state==="selected"?`rgba(${hexRgb(color)},0.1)`:"transparent",color:state==="correct"?C.green:state==="wrong"?C.red:state==="selected"?color:C.dim,cursor:"pointer",fontSize:13,lineHeight:1.5,fontFamily:"inherit",transition:"all 0.15s"}),
+  row:{display:"flex",gap:10,flexWrap:"wrap",marginTop:14},
+  tag:(color)=>({fontSize:10,padding:"3px 9px",border:`1px solid ${color}`,borderRadius:12,color,letterSpacing:1,display:"inline-block"}),
+};
+
+function ProgressBar({pct,color,height=4}){
+  return <div style={{height,background:C.border,borderRadius:height/2,overflow:"hidden"}}><div style={{height:"100%",width:`${pct}%`,background:color,boxShadow:`0 0 6px ${color}`,transition:"width 0.4s"}}/></div>;
+}
+function MenuCard({icon,title,sub,color,onClick,locked}){
+  return <div onClick={onClick} style={{...S.card(locked?C.border:color),cursor:locked?"not-allowed":"pointer",opacity:locked?0.5:1,display:"flex",alignItems:"center",gap:14}}><div style={{fontSize:28,minWidth:36,textAlign:"center"}}>{icon}</div><div style={{flex:1}}><div style={{fontSize:14,fontWeight:"bold",color:locked?C.dim:color,marginBottom:3}}>{title}</div><div style={{fontSize:11,color:C.dim}}>{sub}</div></div>{!locked&&<div style={{color,fontSize:16}}>›</div>}</div>;
+}
+function BackBtn({onClick,color}){
+  return <button onClick={onClick} style={{...S.btn(color),padding:"5px 14px",fontSize:10,marginBottom:20}}>← BACK</button>;
+}
+function buildDeck(domainId,save){
+  const all=FLASHCARD_DOMAINS.flatMap(fd=>fd.cards.map(c=>({...c,deckColor:fd.color,deckName:fd.name,deckId:fd.id})));
+  if(domainId==="all") return all;
+  if(domainId==="starred"){const s=save.starredCards||[];return all.filter(c=>s.includes(c.term));}
+  const fd=FLASHCARD_DOMAINS.find(f=>f.id===domainId);
+  return fd?fd.cards.map(c=>({...c,deckColor:fd.color,deckName:fd.name,deckId:fd.id})):[];
+}
+function Celebration(){
+  const items=Array.from({length:28},(_,i)=>({left:`${(i*37+7)%100}%`,delay:`${((i*0.13)%0.9).toFixed(2)}s`,dur:`${(1.1+(i%5)*0.18).toFixed(2)}s`,color:[C.green,C.gold,C.d1,C.d3,C.purple,C.d2,C.d5][i%7],size:5+(i%5)}));
+  return(<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,pointerEvents:"none",zIndex:50,overflow:"hidden"}}><style>{`@keyframes floatUp{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(-110vh) rotate(720deg);opacity:0}}`}</style>{items.map((p,i)=>(<div key={i} style={{position:"absolute",top:"-10px",left:p.left,width:p.size,height:p.size,borderRadius:"50%",background:p.color,animation:`floatUp ${p.dur} ${p.delay} ease-in forwards`}}/>))}</div>);
+}
+
+export default function App({onExit}){
+  const [save,setSave]=useState(null);
+  const [screen,setScreen]=useState("home");
+  const [quizState,setQuizState]=useState(null);
+  const [fcState,setFcState]=useState(null);
+  useEffect(()=>{
+    loadSave().then(s=>{
+      const data=s||{};
+      const today=new Date().toISOString().slice(0,10);
+      const yesterday=new Date(Date.now()-86400000).toISOString().slice(0,10);
+      const last=data.lastActive;
+      let streak=data.streak||0;
+      if(last===today){}
+      else if(last===yesterday)streak++;
+      else streak=1;
+      const updated={...data,streak,lastActive:today};
+      setSave(updated);
+      writeSave(updated);
+    });
+  },[]);
+  async function updateSave(patch){const next={...save,...patch};setSave(next);await writeSave(next);}
+  if(save===null) return <div style={{...S.app,display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:C.dim,letterSpacing:3,fontSize:12}}>LOADING...</div></div>;
+  const dp=save.domainProgress||{};
+  const practiceUnlocked=DOMAINS.every(d=>dp[d.id]);
+  if(screen==="home") return <HomeScreen save={save} dp={dp} practiceUnlocked={practiceUnlocked} setScreen={setScreen} setQuizState={setQuizState} setFcState={setFcState} onExit={onExit}/>;
+  if(screen==="domainSelect") return <DomainSelectScreen dp={dp} setScreen={setScreen} setQuizState={setQuizState}/>;
+  if(screen==="domainQuiz"&&quizState) return <QuizScreen quizState={quizState} setQuizState={setQuizState} save={save} updateSave={updateSave} setScreen={setScreen} mode="domain"/>;
+  if(screen==="daily") return <DailyScreen dp={dp} setScreen={setScreen} setQuizState={setQuizState}/>;
+  if(screen==="dailyQuiz"&&quizState) return <QuizScreen quizState={quizState} setQuizState={setQuizState} save={save} updateSave={updateSave} setScreen={setScreen} mode="daily"/>;
+  if(screen==="practiceGate") return <PracticeGate practiceUnlocked={practiceUnlocked} dp={dp} setScreen={setScreen} setQuizState={setQuizState}/>;
+  if(screen==="practiceQuiz"&&quizState) return <QuizScreen quizState={quizState} setQuizState={setQuizState} save={save} updateSave={updateSave} setScreen={setScreen} mode="practice"/>;
+  if(screen==="result") return <ResultScreen quizState={quizState} setScreen={setScreen} setQuizState={setQuizState} save={save} updateSave={updateSave}/>;
+  if(screen==="review") return <ReviewScreen quizState={quizState} setScreen={setScreen}/>;
+  if(screen==="flashcards") return <FlashcardHome save={save} updateSave={updateSave} setFcState={setFcState} setScreen={setScreen}/>;
+  if(screen==="fc-flip") return <FlashcardFlip fcState={fcState} setScreen={setScreen} save={save} updateSave={updateSave}/>;
+  if(screen==="fc-drill") return <FlashcardDrill fcState={fcState} setScreen={setScreen} save={save}/>;
+  if(screen==="fc-browse") return <FlashcardBrowse setScreen={setScreen} save={save}/>;
+  return null;
+}
+
+function HomeScreen({save,dp,practiceUnlocked,setScreen,setQuizState,setFcState,onExit}){
+  const attempts=Object.values(dp);
+  const overallPct=attempts.length?Math.round(attempts.reduce((s,d)=>s+d.bestScore,0)/DOMAINS.length):0;
+  const lastPractice=(save.practiceHistory||[]).slice(-1)[0];
+  return(
+    <div style={S.app}><div style={S.scan}/>
+    <div style={S.wrap}>
+      <div style={{textAlign:"center",marginBottom:28,position:"relative"}}>
+        {onExit&&<button onClick={onExit} style={{position:"absolute",top:0,left:0,...S.btn(C.dim),padding:"4px 12px",fontSize:10}}>← ALL CERTS</button>}
+        <div style={{fontSize:10,color:C.dim,letterSpacing:5,marginBottom:8}}>COMPTIA 220-1101/1102</div>
+        <div style={{fontSize:26,fontWeight:"bold",letterSpacing:4,color:C.d2,textShadow:`0 0 24px rgba(${hexRgb(C.d2)},0.5)`,marginBottom:4}}>COMPTIA TRAINER</div>
+        <div style={{fontSize:10,color:C.dim,letterSpacing:3}}>CORE 1 + CORE 2 &bull; ALL 9 DOMAINS</div>
+      </div>
+      <div style={S.divider}/>
+      {save.streak>0&&<div style={{textAlign:"center",marginBottom:18}}>
+        <div style={{fontSize:28}}>🔥</div>
+        <div style={{fontSize:16,fontWeight:"bold",color:C.gold,letterSpacing:3}}>{save.streak} DAY STREAK</div>
+        <div style={{fontSize:10,color:C.dim,letterSpacing:2,marginTop:2}}>{save.streak===1?"COME BACK TOMORROW TO BUILD IT":"KEEP IT GOING"}</div>
+      </div>}
+      {attempts.length>0&&(
+        <div style={{...S.card(),marginBottom:16}}>
+          <div style={S.label()}>Overall Readiness</div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <div style={{fontSize:28,fontWeight:"bold",color:scoreColor(overallPct)}}>{overallPct}%</div>
+            <div style={{fontSize:11,color:C.dim}}>{attempts.length}/9 domains attempted</div>
+          </div>
+          <ProgressBar pct={overallPct} color={scoreColor(overallPct)}/>
+          {overallPct>=80&&<div style={{fontSize:11,color:C.green,marginTop:8,letterSpacing:1}}>★ EXAM READY THRESHOLD MET</div>}
+        </div>
+      )}
+      <MenuCard icon="📚" title="Domain Study" sub="9 domains · Core 1 + Core 2" color={C.d2} onClick={()=>setScreen("domainSelect")}/>
+      <MenuCard icon="⚡" title="Daily Quick Practice" sub="10 questions · Based on domains you have completed" color={C.gold} onClick={()=>setScreen("daily")}/>
+      <MenuCard icon="🃏" title="Flashcards" sub="Flip · Drill · Browse · Acronyms & Analogies" color={C.purple} onClick={()=>{setFcState(null);setScreen("flashcards");}}/>
+      <MenuCard icon={practiceUnlocked?"🎯":"🔒"} title="Full Practice Test" sub={practiceUnlocked?`90 questions · Timed · Full report${lastPractice?` · Last: ${lastPractice.pct}%`:""}` :"Complete all 9 domains to unlock"} color={practiceUnlocked?C.d2:C.muted} onClick={()=>setScreen("practiceGate")} locked={!practiceUnlocked}/>
+      <div style={{marginTop:24}}>
+        <div style={S.label()}>Domain Progress</div>
+        {DOMAINS.map(d=>{
+          const prog=dp[d.id];const pct=prog?.bestScore||0;
+          return <div key={d.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${C.border}`}}>
+            <div style={{fontSize:16,width:24}}>{d.icon}</div>
+            <div style={{flex:1}}><div style={{fontSize:12,color:d.color,marginBottom:3}}>{d.name}</div><ProgressBar pct={pct} color={d.color} height={3}/></div>
+            <div style={{fontSize:13,fontWeight:"bold",color:prog?scoreColor(pct):C.muted,minWidth:40,textAlign:"right"}}>{prog?`${pct}%`:"—"}</div>
+          </div>;
+        })}
+      </div>
+      <div style={{marginTop:20,padding:"12px 16px",border:`1px solid ${C.border}`,borderRadius:8,fontSize:11,color:C.dim,lineHeight:1.8}}>
+        <span style={{color:C.d2}}>HOW TO USE: </span>Work through Core 1 domains (1-5) then Core 2 domains (6-9). Use Flashcards anytime. After all 9 domains, the Full Practice Test unlocks. Target 80%+ before exam day.
+      </div>
+    </div></div>
+  );
+}
+
+function FlashcardHome({save,updateSave,setFcState,setScreen}){
+  const starred=save.starredCards||[];
+  const totalCards=FLASHCARD_DOMAINS.reduce((s,d)=>s+d.cards.length,0);
+  return(
+    <div style={S.app}><div style={S.scan}/>
+    <div style={S.wrap}>
+      <BackBtn onClick={()=>setScreen("home")} color={C.purple}/>
+      <div style={{textAlign:"center",marginBottom:24}}>
+        <div style={{fontSize:22,fontWeight:"bold",color:C.purple,letterSpacing:3,marginBottom:4}}>🃏 FLASHCARDS</div>
+        <div style={{fontSize:11,color:C.dim,letterSpacing:2}}>ACRONYMS · ANALOGIES · DEFINITIONS</div>
+      </div>
+      <div style={S.divider}/>
+      <div style={S.label()}>Choose a Mode</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:24}}>
+        {[{mode:"fc-flip",icon:"🔄",label:"Flip",desc:"Tap to reveal",color:C.d1},{mode:"fc-drill",icon:"⚡",label:"Drill",desc:"Self-grade each card",color:C.gold},{mode:"fc-browse",icon:"📖",label:"Browse",desc:"Scrollable reference",color:C.d5}].map(m=>(
+          <div key={m.mode} style={{...S.card(m.color),cursor:"pointer",textAlign:"center",padding:"16px 10px"}}
+            onClick={()=>{setFcState({mode:m.mode,domainId:"all"});setScreen(m.mode);}}>
+            <div style={{fontSize:24,marginBottom:6}}>{m.icon}</div>
+            <div style={{fontSize:12,color:m.color,fontWeight:"bold",marginBottom:3}}>{m.label}</div>
+            <div style={{fontSize:10,color:C.dim}}>{m.desc}</div>
+          </div>
+        ))}
+      </div>
+      <div style={S.label()}>Choose a Deck</div>
+      {starred.length>0&&(
+        <div style={{...S.card(C.gold),cursor:"pointer",display:"flex",alignItems:"center",gap:14}} onClick={()=>{setFcState({domainId:"starred"});setScreen("fc-flip");}}>
+          <div style={{fontSize:22}}>⭐</div>
+          <div style={{flex:1}}><div style={{fontSize:13,color:C.gold,fontWeight:"bold"}}>Starred Cards</div><div style={{fontSize:11,color:C.dim}}>{starred.length} cards marked for review</div></div>
+          <div style={{color:C.gold}}>›</div>
+        </div>
+      )}
+      <div style={{...S.card(C.purple),cursor:"pointer",display:"flex",alignItems:"center",gap:14}} onClick={()=>{setFcState({domainId:"all"});setScreen("fc-flip");}}>
+        <div style={{fontSize:22}}>🖥️</div>
+        <div style={{flex:1}}><div style={{fontSize:13,color:C.purple,fontWeight:"bold"}}>All Topics</div><div style={{fontSize:11,color:C.dim}}>{totalCards} total cards across all decks</div></div>
+        <div style={{color:C.purple}}>›</div>
+      </div>
+      {FLASHCARD_DOMAINS.map(fd=>(
+        <div key={fd.id} style={{...S.card(fd.color),cursor:"pointer",display:"flex",alignItems:"center",gap:14}} onClick={()=>{setFcState({domainId:fd.id});setScreen("fc-flip");}}>
+          <div style={{fontSize:20}}>{fd.icon}</div>
+          <div style={{flex:1}}><div style={{fontSize:13,color:fd.color,fontWeight:"bold"}}>{fd.name}</div><div style={{fontSize:11,color:C.dim}}>{fd.cards.length} cards</div></div>
+          <div style={{color:fd.color}}>›</div>
+        </div>
+      ))}
+    </div></div>
+  );
+}
+
+function FlashcardFlip({fcState,setScreen,save,updateSave}){
+  const [deck,setDeck]=useState(()=>buildDeck(fcState?.domainId||"all",save));
+  const [idx,setIdx]=useState(0);
+  const [flipped,setFlipped]=useState(false);
+  const [showAcronym,setShowAcronym]=useState(false);
+  const [showAnalogy,setShowAnalogy]=useState(false);
+  const starred=save.starredCards||[];
+  if(!deck.length) return <div style={S.app}><div style={S.wrap}><BackBtn onClick={()=>setScreen("flashcards")} color={C.purple}/><div style={{color:C.dim,padding:20}}>No cards in this deck.</div></div></div>;
+  const card=deck[idx];
+  const color=card.deckColor||C.purple;
+  const isStarred=starred.includes(card.term);
+  function nav(dir){setIdx(i=>Math.max(0,Math.min(deck.length-1,i+dir)));setFlipped(false);setShowAcronym(false);setShowAnalogy(false);}
+  async function toggleStar(){await updateSave({starredCards:isStarred?starred.filter(s=>s!==card.term):[...starred,card.term]});}
+  function shuffleDeck(){setDeck(d=>shuffle([...d]));setIdx(0);setFlipped(false);setShowAcronym(false);setShowAnalogy(false);}
+  useEffect(()=>{
+    function onKey(e){
+      if(e.target.tagName==="INPUT")return;
+      if(e.key===" "||e.key==="Enter"){e.preventDefault();setFlipped(f=>!f);}
+      if(e.key==="ArrowRight"||e.key==="ArrowDown"){e.preventDefault();setIdx(i=>Math.min(deck.length-1,i+1));setFlipped(false);setShowAcronym(false);setShowAnalogy(false);}
+      if(e.key==="ArrowLeft"||e.key==="ArrowUp"){e.preventDefault();setIdx(i=>Math.max(0,i-1));setFlipped(false);setShowAcronym(false);setShowAnalogy(false);}
+    }
+    window.addEventListener("keydown",onKey);
+    return()=>window.removeEventListener("keydown",onKey);
+  },[deck.length]);
+  return(
+    <div style={S.app}><div style={S.scan}/>
+    <div style={S.wrap}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <BackBtn onClick={()=>setScreen("flashcards")} color={C.purple}/>
+        <div style={{fontSize:11,color:C.dim,letterSpacing:2}}>{idx+1} / {deck.length}</div>
+        <div style={{display:"flex",gap:6}}>
+          <button onClick={shuffleDeck} style={{...S.btn(C.d5),padding:"5px 12px",fontSize:13}}>⇄</button>
+          <button onClick={toggleStar} style={{...S.btn(isStarred?C.gold:C.muted,isStarred),padding:"5px 12px",fontSize:13}}>{isStarred?"★":"☆"}</button>
+        </div>
+      </div>
+      <div style={{height:3,background:C.border,borderRadius:2,marginBottom:20,overflow:"hidden"}}>
+        <div style={{height:"100%",width:`${Math.round(((idx+1)/deck.length)*100)}%`,background:color,transition:"width 0.3s"}}/>
+      </div>
+      <div style={{marginBottom:12}}>
+        <span style={{...S.tag(color),marginRight:8}}>{card.deckName}</span>
+        {card.category&&<span style={S.tag(C.muted)}>{card.category}</span>}
+      </div>
+      <div onClick={()=>setFlipped(f=>!f)} style={{cursor:"pointer",minHeight:160,border:`1px solid ${color}`,borderRadius:12,padding:"22px 20px",background:flipped?`rgba(${hexRgb(color)},0.07)`:C.surface,transition:"all 0.2s",marginBottom:14,position:"relative"}}>
+        <div style={{fontSize:10,color,letterSpacing:3,marginBottom:10}}>{flipped?"DEFINITION":"TERM — TAP TO REVEAL"}</div>
+        {!flipped?<div style={{fontSize:18,fontWeight:"bold",color:C.text,lineHeight:1.5}}>{card.term}</div>:<div style={{fontSize:13,color:C.text,lineHeight:1.8}}>{card.definition}</div>}
+        <div style={{position:"absolute",bottom:10,right:14,fontSize:10,color:C.muted}}>{flipped?"tap to flip back":"tap to reveal"}</div>
+      </div>
+      {flipped&&<div>
+        {card.acronym&&<div style={{marginBottom:10}}>
+          <button onClick={()=>setShowAcronym(a=>!a)} style={{...S.btn(C.gold,showAcronym),width:"100%",textAlign:"left",padding:"10px 14px"}}>🧠 {showAcronym?"HIDE":"SHOW"} MEMORY TRICK</button>
+          {showAcronym&&<div style={{padding:"12px 14px",background:`rgba(${hexRgb(C.gold)},0.06)`,border:`1px solid ${C.gold}`,borderTop:"none",borderRadius:"0 0 6px 6px",fontSize:12,color:C.text,lineHeight:1.8}}>{card.acronym}</div>}
+        </div>}
+        {card.analogy&&<div style={{marginBottom:10}}>
+          <button onClick={()=>setShowAnalogy(a=>!a)} style={{...S.btn(color,showAnalogy),width:"100%",textAlign:"left",padding:"10px 14px"}}>💡 {showAnalogy?"HIDE":"SHOW"} ANALOGY</button>
+          {showAnalogy&&<div style={{padding:"12px 14px",background:`rgba(${hexRgb(color)},0.06)`,border:`1px solid ${color}`,borderTop:"none",borderRadius:"0 0 6px 6px",fontSize:12,color:C.text,lineHeight:1.8}}>{card.analogy}</div>}
+        </div>}
+      </div>}
+      <div style={{fontSize:10,color:C.muted,letterSpacing:1,textAlign:"center",margin:"8px 0 4px"}}>Space flip · ← → navigate · ⇄ shuffle</div>
+      <div style={S.row}>
+        <button onClick={()=>nav(-1)} disabled={idx===0} style={{...S.btn(color),flex:1,opacity:idx===0?0.3:1}}>← PREV</button>
+        <button onClick={()=>nav(1)} disabled={idx===deck.length-1} style={{...S.btn(color,true),flex:1,opacity:idx===deck.length-1?0.3:1}}>NEXT →</button>
+      </div>
+      {idx===deck.length-1&&<div style={{textAlign:"center",marginTop:12,fontSize:12,color:C.green}}>✓ End of deck</div>}
+    </div></div>
+  );
+}
+
+function FlashcardDrill({fcState,setScreen,save}){
+  const [deck]=useState(()=>shuffle(buildDeck(fcState?.domainId||"all",save)));
+  const [idx,setIdx]=useState(0);
+  const [revealed,setRevealed]=useState(false);
+  const [grades,setGrades]=useState([]);
+  const [done,setDone]=useState(false);
+  if(!deck.length) return <div style={S.app}><div style={S.wrap}><BackBtn onClick={()=>setScreen("flashcards")} color={C.purple}/><div style={{color:C.dim,padding:20}}>No cards in this deck.</div></div></div>;
+  if(done){
+    const got=grades.filter(g=>g==="got").length;
+    const pct=Math.round((got/grades.length)*100);
+    const missed=deck.filter((_,i)=>grades[i]==="missed");
+    return(
+      <div style={S.app}><div style={S.scan}/>
+      <div style={S.wrap}>
+        <div style={{textAlign:"center",padding:"28px 0 20px"}}>
+          <div style={{fontSize:10,color:C.dim,letterSpacing:3,marginBottom:8}}>DRILL COMPLETE</div>
+          <div style={{fontSize:60,fontWeight:"bold",color:scoreColor(pct),textShadow:`0 0 24px ${scoreColor(pct)}`}}>{pct}%</div>
+          <div style={{fontSize:12,color:C.dim,marginTop:6}}>{got} / {grades.length} correct</div>
+        </div>
+        <div style={S.divider}/>
+        {missed.length>0&&<div>
+          <div style={S.label(C.red)}>Review These ({missed.length})</div>
+          {missed.map((c,i)=>(<div key={i} style={{...S.card(),marginBottom:10}}><div style={{fontSize:13,color:C.text,fontWeight:"bold",marginBottom:6}}>{c.term}</div><div style={{fontSize:12,color:C.dim,lineHeight:1.7}}>{c.definition}</div>{c.acronym&&<div style={{fontSize:11,color:C.gold,marginTop:8,lineHeight:1.7,paddingLeft:8,borderLeft:`2px solid ${C.gold}`}}>{c.acronym}</div>}</div>))}
+        </div>}
+        <div style={S.row}><button onClick={()=>setScreen("flashcards")} style={{...S.btn(C.purple,true),flex:1}}>BACK TO DECKS</button></div>
+      </div></div>
+    );
+  }
+  const card=deck[idx];
+  const color=card.deckColor||C.purple;
+  function grade(result){const ng=[...grades,result];setGrades(ng);if(idx+1>=deck.length){setDone(true);}else{setIdx(i=>i+1);setRevealed(false);}}
+  const gradeRef=useRef();
+  gradeRef.current=grade;
+  useEffect(()=>{
+    function onKey(e){
+      if(e.target.tagName==="INPUT")return;
+      if(!revealed){if(e.key===" "||e.key==="Enter"){e.preventDefault();setRevealed(true);}}
+      else{if(e.key==="ArrowRight"||e.key==="g"||e.key==="G")gradeRef.current("got");if(e.key==="ArrowLeft"||e.key==="m"||e.key==="M")gradeRef.current("missed");}
+    }
+    window.addEventListener("keydown",onKey);
+    return()=>window.removeEventListener("keydown",onKey);
+  },[revealed]);
+  return(
+    <div style={S.app}><div style={S.scan}/>
+    <div style={S.wrap}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <BackBtn onClick={()=>setScreen("flashcards")} color={C.purple}/>
+        <div style={{fontSize:11,color:C.dim}}>{idx+1} / {deck.length}</div>
+        <div style={{fontSize:11,color:C.green}}>{grades.filter(g=>g==="got").length} ✓</div>
+      </div>
+      <div style={{height:3,background:C.border,borderRadius:2,marginBottom:20,overflow:"hidden"}}><div style={{height:"100%",width:`${Math.round((idx/deck.length)*100)}%`,background:color}}/></div>
+      <div style={{marginBottom:12}}><span style={{...S.tag(color),marginRight:8}}>{card.deckName}</span>{card.category&&<span style={S.tag(C.muted)}>{card.category}</span>}</div>
+      <div style={{border:`1px solid ${color}`,borderRadius:12,padding:"22px 20px",background:C.surface,marginBottom:14}}>
+        <div style={{fontSize:10,color,letterSpacing:3,marginBottom:10}}>TERM</div>
+        <div style={{fontSize:18,fontWeight:"bold",color:C.text,lineHeight:1.5}}>{card.term}</div>
+      </div>
+      {!revealed
+        ?<><button onClick={()=>setRevealed(true)} style={{...S.btn(color,true),width:"100%",padding:"13px",fontSize:12}}>REVEAL ANSWER</button><div style={{fontSize:10,color:C.muted,letterSpacing:1,textAlign:"center",marginTop:8}}>Space / Enter to reveal</div></>
+        :<div>
+          <div style={{fontSize:10,color:C.muted,letterSpacing:1,textAlign:"center",marginBottom:8}}>← M missed · G → got it</div>
+          <div style={{border:`1px solid ${color}`,borderRadius:12,padding:"20px",background:`rgba(${hexRgb(color)},0.05)`,marginBottom:14}}>
+            <div style={{fontSize:10,color,letterSpacing:3,marginBottom:10}}>DEFINITION</div>
+            <div style={{fontSize:13,color:C.text,lineHeight:1.8,marginBottom:card.acronym||card.analogy?12:0}}>{card.definition}</div>
+            {card.acronym&&<div style={{borderTop:`1px solid ${C.border}`,paddingTop:10}}><div style={{fontSize:10,color:C.gold,letterSpacing:2,marginBottom:4}}>MEMORY TRICK</div><div style={{fontSize:12,color:C.gold,lineHeight:1.7}}>{card.acronym}</div></div>}
+            {card.analogy&&<div style={{borderTop:`1px solid ${C.border}`,paddingTop:10,marginTop:card.acronym?10:0}}><div style={{fontSize:10,color:C.dim,letterSpacing:2,marginBottom:4}}>ANALOGY</div><div style={{fontSize:12,color:C.dim,lineHeight:1.7}}>{card.analogy}</div></div>}
+          </div>
+          <div style={{...S.row,marginTop:0}}>
+            <button onClick={()=>grade("missed")} style={{...S.btn(C.red),flex:1,padding:"12px"}}>✗ MISSED IT</button>
+            <button onClick={()=>grade("got")} style={{...S.btn(C.green,true),flex:1,padding:"12px"}}>✓ GOT IT</button>
+          </div>
+        </div>
+      }
+    </div></div>
+  );
+}
+
+function FlashcardBrowse({setScreen,save}){
+  const [filter,setFilter]=useState("all");
+  const [search,setSearch]=useState("");
+  const [expanded,setExpanded]=useState(null);
+  const starred=save.starredCards||[];
+  const all=FLASHCARD_DOMAINS.flatMap(fd=>fd.cards.map(c=>({...c,deckColor:fd.color,deckName:fd.name,deckId:fd.id})));
+  const filtered=all.filter(c=>{
+    const mD=filter==="all"?true:filter==="starred"?starred.includes(c.term):c.deckId===filter;
+    const mS=!search||c.term.toLowerCase().includes(search.toLowerCase())||c.definition.toLowerCase().includes(search.toLowerCase())||(c.acronym||"").toLowerCase().includes(search.toLowerCase());
+    return mD&&mS;
+  });
+  return(
+    <div style={S.app}><div style={S.scan}/>
+    <div style={S.wrap}>
+      <BackBtn onClick={()=>setScreen("flashcards")} color={C.purple}/>
+      <div style={{fontSize:14,fontWeight:"bold",color:C.purple,letterSpacing:2,marginBottom:16}}>📖 BROWSE REFERENCE</div>
+      <input placeholder="Search terms, definitions, acronyms..." value={search} onChange={e=>setSearch(e.target.value)}
+        style={{width:"100%",padding:"10px 14px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:12,fontFamily:"inherit",marginBottom:12,boxSizing:"border-box"}}/>
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:20}}>
+        <button onClick={()=>setFilter("all")} style={{...S.btn(filter==="all"?C.purple:C.muted,filter==="all"),padding:"5px 12px",fontSize:10}}>All</button>
+        {starred.length>0&&<button onClick={()=>setFilter("starred")} style={{...S.btn(filter==="starred"?C.gold:C.muted,filter==="starred"),padding:"5px 12px",fontSize:10}}>⭐ Starred</button>}
+        {FLASHCARD_DOMAINS.map(fd=>(<button key={fd.id} onClick={()=>setFilter(fd.id)} style={{...S.btn(filter===fd.id?fd.color:C.muted,filter===fd.id),padding:"5px 10px",fontSize:10}}>{fd.icon}</button>))}
+      </div>
+      <div style={S.label()}>{filtered.length} cards</div>
+      {filtered.map((card,i)=>{
+        const open=expanded===i;
+        return(<div key={i} style={{border:`1px solid ${open?card.deckColor:C.border}`,borderRadius:10,marginBottom:8,background:C.surface,overflow:"hidden"}}>
+          <div onClick={()=>setExpanded(open?null:i)} style={{padding:"14px 16px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div><div style={{fontSize:12,fontWeight:"bold",color:card.deckColor,marginBottom:3}}>{card.term}</div><div style={{fontSize:10,color:C.dim}}>{card.deckName} · {card.category}</div></div>
+            <div style={{color:open?card.deckColor:C.muted,fontSize:16,transition:"transform 0.2s",transform:open?"rotate(90deg)":"none"}}>›</div>
+          </div>
+          {open&&<div style={{padding:"0 16px 16px",borderTop:`1px solid ${C.border}`}}>
+            <div style={{fontSize:12,color:C.text,lineHeight:1.8,marginTop:12}}>{card.definition}</div>
+            {card.acronym&&<div style={{padding:"10px 12px",background:`rgba(${hexRgb(C.gold)},0.06)`,border:`1px solid ${C.gold}`,borderRadius:8,marginTop:10}}><div style={{fontSize:10,color:C.gold,letterSpacing:2,marginBottom:4}}>MEMORY TRICK</div><div style={{fontSize:12,color:C.gold,lineHeight:1.7}}>{card.acronym}</div></div>}
+            {card.analogy&&<div style={{padding:"10px 12px",background:`rgba(${hexRgb(card.deckColor)},0.05)`,border:`1px solid ${card.deckColor}`,borderRadius:8,marginTop:8}}><div style={{fontSize:10,color:card.deckColor,letterSpacing:2,marginBottom:4}}>ANALOGY</div><div style={{fontSize:12,color:C.dim,lineHeight:1.7}}>{card.analogy}</div></div>}
+          </div>}
+        </div>);
+      })}
+      {!filtered.length&&<div style={{textAlign:"center",padding:"32px",color:C.dim,fontSize:12}}>No cards match your search.</div>}
+    </div></div>
+  );
+}
+
+function DomainSelectScreen({dp,setScreen,setQuizState}){
+  return(
+    <div style={S.app}><div style={S.scan}/>
+    <div style={S.wrap}>
+      <BackBtn onClick={()=>setScreen("home")} color={C.d2}/>
+      <div style={S.label(C.d2)}>Select a Domain</div>
+      {DOMAINS.map(d=>{
+        const prog=dp[d.id];const pct=prog?.bestScore||0;
+        return(<div key={d.id} style={{...S.card(d.color),cursor:"pointer"}}
+          onClick={()=>{setQuizState({mode:"domain",domain:d,questions:d.questions.map(q=>({...q,domainId:d.id,domainName:d.name,domainColor:d.color})),qIdx:0,answers:[],score:0,confidence:[]});setScreen("domainQuiz");}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div>
+              <div style={{fontSize:10,color:C.dim,letterSpacing:2,marginBottom:4}}>DOMAIN {d.id} · {d.weight}</div>
+              <div style={{fontSize:15,color:d.color,fontWeight:"bold",marginBottom:4}}>{d.icon} {d.name}</div>
+              <div style={{fontSize:11,color:C.dim}}>{d.desc}</div>
+              <div style={{fontSize:11,color:C.dim,marginTop:4}}>{d.questions.length} questions</div>
+            </div>
+            <div style={{textAlign:"right"}}>{prog?<><div style={{fontSize:20,fontWeight:"bold",color:scoreColor(pct)}}>{pct}%</div><div style={{fontSize:10,color:C.dim}}>{prog.attempts} run{prog.attempts!==1?"s":""}</div></>:<span style={S.tag(d.color)}>NEW</span>}</div>
+          </div>
+          <div style={{marginTop:10}}><ProgressBar pct={pct} color={d.color}/></div>
+        </div>);
+      })}
+    </div></div>
+  );
+}
+
+function DailyScreen({dp,setScreen,setQuizState}){
+  const attempted=DOMAINS.filter(d=>dp[d.id]);
+  const available=attempted.length>0?attempted:DOMAINS.slice(0,1);
+  function startDaily(domains){
+    const pool=domains.flatMap(d=>d.questions.map(q=>({...q,domainId:d.id,domainName:d.name,domainColor:d.color})));
+    setQuizState({mode:"daily",questions:shuffle(pool).slice(0,10),qIdx:0,answers:[],score:0,confidence:[],domainIds:domains.map(d=>d.id)});
+    setScreen("dailyQuiz");
+  }
+  return(
+    <div style={S.app}><div style={S.scan}/>
+    <div style={S.wrap}>
+      <BackBtn onClick={()=>setScreen("home")} color={C.gold}/>
+      <div style={S.label(C.gold)}>Daily Quick Practice</div>
+      <div style={{...S.card(),marginBottom:20,fontSize:12,color:C.dim,lineHeight:1.7}}>10 randomized questions from completed domains.</div>
+      <div style={S.label()}>Pick Your Focus</div>
+      <div style={{...S.card(C.gold),cursor:"pointer"}} onClick={()=>startDaily(available)}>
+        <div style={{fontSize:13,color:C.gold,fontWeight:"bold",marginBottom:4}}>⚡ All Completed Domains</div>
+        <div style={{fontSize:11,color:C.dim}}>{available.map(d=>d.name).join(", ")}</div>
+      </div>
+      {available.map(d=>{
+        const prog=dp[d.id];const pct=prog?.bestScore||0;
+        return(<div key={d.id} style={{...S.card(pct<80?d.color:C.border),cursor:"pointer"}} onClick={()=>startDaily([d])}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div><div style={{fontSize:13,color:d.color,fontWeight:"bold"}}>{d.icon} {d.name}</div><div style={{fontSize:11,color:C.dim,marginTop:3}}>{d.desc}</div></div>
+            <div style={{textAlign:"right"}}><div style={{fontSize:16,fontWeight:"bold",color:scoreColor(pct)}}>{pct}%</div>{pct<80&&<div style={{fontSize:9,color:C.red,letterSpacing:1}}>NEEDS WORK</div>}</div>
+          </div>
+        </div>);
+      })}
+      {attempted.length===0&&<div style={{padding:"16px",color:C.dim,fontSize:12,textAlign:"center"}}>Complete at least one Domain Study session to unlock daily practice.</div>}
+    </div></div>
+  );
+}
+
+function PracticeGate({practiceUnlocked,dp,setScreen,setQuizState}){
+  function startPractice(){
+    const pool=[];
+    [{d:1,n:10},{d:2,n:10},{d:3,n:10},{d:4,n:10},{d:5,n:10},{d:6,n:10},{d:7,n:10},{d:8,n:10},{d:9,n:10}].forEach(({d,n})=>{
+      const dom=DOMAINS.find(x=>x.id===d);
+      shuffle(dom.questions).slice(0,Math.min(n,dom.questions.length)).forEach(q=>pool.push({...q,domainId:dom.id,domainName:dom.name,domainColor:dom.color}));
+    });
+    setQuizState({mode:"practice",questions:shuffle(pool),qIdx:0,answers:[],score:0,confidence:[],startTime:Date.now()});
+    setScreen("practiceQuiz");
+  }
+  return(
+    <div style={S.app}><div style={S.scan}/>
+    <div style={S.wrap}>
+      <BackBtn onClick={()=>setScreen("home")} color={C.d2}/>
+      {!practiceUnlocked?(
+        <div style={{textAlign:"center",padding:"40px 20px"}}>
+          <div style={{fontSize:48,marginBottom:16}}>🔒</div>
+          <div style={{fontSize:18,color:C.d2,fontWeight:"bold",marginBottom:12,letterSpacing:2}}>PRACTICE TEST LOCKED</div>
+          <div style={{fontSize:12,color:C.dim,lineHeight:1.8,marginBottom:24}}>Complete all 9 domain study sessions at least once to unlock the Full Practice Test.</div>
+          <div style={S.divider}/>
+          {DOMAINS.map(d=>(<div key={d.id} style={{display:"flex",alignItems:"center",gap:12,padding:"8px 0",borderBottom:`1px solid ${C.border}`}}>
+            <div style={{fontSize:18}}>{dp[d.id]?"✅":"⬜"}</div>
+            <div style={{fontSize:12,color:dp[d.id]?C.green:C.dim}}>{d.name}</div>
+            {dp[d.id]&&<div style={{marginLeft:"auto",fontSize:11,color:scoreColor(dp[d.id].bestScore)}}>{dp[d.id].bestScore}%</div>}
+          </div>))}
+        </div>
+      ):(
+        <div style={{textAlign:"center"}}>
+          <div style={{fontSize:40,marginBottom:12}}>🎯</div>
+          <div style={{fontSize:18,color:C.d2,fontWeight:"bold",letterSpacing:2,marginBottom:8}}>FULL PRACTICE TEST</div>
+          <div style={{fontSize:11,color:C.dim,letterSpacing:2,marginBottom:24}}>220-1101/1102 SIMULATION</div>
+          <div style={{display:"flex",justifyContent:"center",gap:28,marginBottom:28,flexWrap:"wrap"}}>
+            {[["90","QUESTIONS"],["9","DOMAINS"],["~80%","PASSING"],["TIMED","SESSION"]].map(([v,l])=>(<div key={l} style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:"bold",color:C.d2}}>{v}</div><div style={{fontSize:9,color:C.dim,letterSpacing:1}}>{l}</div></div>))}
+          </div>
+          <div style={{...S.card(),textAlign:"left",marginBottom:20}}>
+            <div style={S.label(C.gold)}>After the test you get</div>
+            <div style={{fontSize:12,color:C.dim,lineHeight:2}}>✓ Total score with pass/fail verdict<br/>✓ Domain-by-domain breakdown<br/>✓ Weak spot analysis with study tips<br/>✓ Confidence calibration report<br/>✓ Full answer review with analogies</div>
+          </div>
+          <button onClick={startPractice} style={{...S.btn(C.d2,true),fontSize:13,padding:"13px 36px"}}>START PRACTICE TEST</button>
+        </div>
+      )}
+    </div></div>
+  );
+}
+
+function QuizScreen({quizState,setQuizState,save,updateSave,setScreen,mode}){
+  const {questions,qIdx,answers,score,confidence}=quizState;
+  const [selected,setSelected]=useState(null);
+  const [confirmed,setConfirmed]=useState(false);
+  const [conf,setConf]=useState(null);
+  const handleNextRef=useRef();
+  const q=questions[qIdx];
+  const color=q.domainColor||C.d2;
+  const qDomainName=q.domainName||quizState.domain?.name||"";
+  const total=questions.length;
+  function getState(i){if(!confirmed)return selected===i?"selected":"default";if(i===q.answer)return "correct";if(i===selected&&selected!==q.answer)return "wrong";return "default";}
+  async function handleNext(){
+    const isCorrect=selected===q.answer;
+    const newAnswers=[...answers,{qIdx,selected,correct:q.answer,confidence:conf}];
+    const newScore=score+(isCorrect?1:0);
+    const newConf=[...confidence,conf];
+    if(qIdx+1<total){setQuizState({...quizState,qIdx:qIdx+1,answers:newAnswers,score:newScore,confidence:newConf});setSelected(null);setConfirmed(false);setConf(null);}
+    else{
+      const pct=Math.round((newScore/total)*100);
+      const finalState={...quizState,answers:newAnswers,score:newScore,confidence:newConf,finalPct:pct,finishedAt:Date.now()};
+      if(mode==="domain"){const dp=save.domainProgress||{};const prev=dp[quizState.domain.id]||{};await updateSave({domainProgress:{...dp,[quizState.domain.id]:{bestScore:Math.max(pct,prev.bestScore||0),attempts:(prev.attempts||0)+1,lastPct:pct}}});}
+      if(mode==="practice"){const hist=save.practiceHistory||[];await updateSave({practiceHistory:[...hist,{pct,date:Date.now(),total}]});}
+      setQuizState(finalState);setScreen("result");
+    }
+  }
+  handleNextRef.current=handleNext;
+  useEffect(()=>{
+    function onKey(e){
+      if(e.target.tagName==="INPUT")return;
+      const map={"a":0,"b":1,"c":2,"d":3};
+      if(confirmed){if(e.key==="Enter")handleNextRef.current?.();}
+      else{const i=map[e.key.toLowerCase()];if(i!==undefined&&i<q.options.length)setSelected(i);if(e.key==="1")setConf("sure");if(e.key==="2")setConf("guess");if(e.key==="Enter"&&selected!==null&&conf!==null)setConfirmed(true);}
+    }
+    window.addEventListener("keydown",onKey);
+    return()=>window.removeEventListener("keydown",onKey);
+  },[confirmed,selected,conf,q.options.length]);
+  return(
+    <div style={S.app}><div style={S.scan}/>
+    <div style={S.wrap}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <button onClick={()=>setScreen("home")} style={{...S.btn(C.dim),padding:"4px 12px",fontSize:10}}>✕ EXIT</button>
+        <div style={{fontSize:10,color:C.dim,letterSpacing:2}}>{mode==="domain"?qDomainName.toUpperCase():mode==="practice"?"PRACTICE TEST":"DAILY PRACTICE"}</div>
+        <div style={{fontSize:11,color}}>{qIdx+1}/{total}</div>
+      </div>
+      <div style={{height:4,background:C.border,borderRadius:2,marginBottom:20,overflow:"hidden"}}><div style={{height:"100%",width:`${Math.round((qIdx/total)*100)}%`,background:color,transition:"width 0.3s",boxShadow:`0 0 8px ${color}`}}/></div>
+      <div style={{marginBottom:12}}><span style={{...S.tag(color),marginRight:8}}>{qDomainName}</span><span style={S.tag(C.muted)}>{q.topic}</span></div>
+      <div style={{fontSize:15,lineHeight:1.7,color:C.text,marginBottom:20,padding:"16px",background:C.surface,borderRadius:8,border:`1px solid ${C.border}`}}>{q.q}</div>
+      {q.options.map((opt,i)=>(<button key={i} onClick={()=>{if(!confirmed)setSelected(i);}} style={S.optionBtn(getState(i),color)}><span style={{marginRight:10,opacity:0.5}}>{String.fromCharCode(65+i)}.</span>{opt}</button>))}
+      <div style={{fontSize:10,color:C.muted,letterSpacing:1,textAlign:"center",margin:"6px 0"}}>A B C D select · 1 know it · 2 guess · Enter confirm</div>
+      {!confirmed&&selected!==null&&(
+        <div style={{marginTop:10,padding:"12px 14px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8}}>
+          <div style={S.label()}>How confident are you?</div>
+          <div style={S.row}>
+            <button onClick={()=>setConf("sure")} style={{...S.btn(conf==="sure"?C.green:C.muted,conf==="sure"),flex:1}}>✓ I Know This</button>
+            <button onClick={()=>setConf("guess")} style={{...S.btn(conf==="guess"?C.orange:C.muted,conf==="guess"),flex:1}}>? Educated Guess</button>
+          </div>
+        </div>
+      )}
+      {confirmed&&(
+        <div style={{marginTop:14,padding:"14px 16px",background:`rgba(${hexRgb(color)},0.05)`,border:`1px solid ${color}`,borderRadius:8}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <div style={S.label(color)}>Explanation</div>
+            <div style={{fontSize:10,color:selected===q.answer?C.green:C.red,letterSpacing:2}}>{selected===q.answer?"CORRECT":"INCORRECT"}</div>
+          </div>
+          <div style={{fontSize:12,color:C.dim,lineHeight:1.8,marginBottom:10}}>{q.explanation}</div>
+          <div style={{fontSize:11,color:C.muted,letterSpacing:1,marginBottom:4}}>ANALOGY</div>
+          <div style={{fontSize:12,color:C.text,lineHeight:1.8,paddingLeft:10,borderLeft:`2px solid ${color}`,marginBottom:10}}>{q.analogy}</div>
+          <div style={{fontSize:11,color:C.muted,letterSpacing:1,marginBottom:4}}>IN YOUR WORK</div>
+          <div style={{fontSize:12,color:C.dim,lineHeight:1.8}}>{q.realWorld}</div>
+        </div>
+      )}
+      <div style={S.row}>
+        {!confirmed
+          ?<button onClick={()=>{if(selected!==null&&conf!==null)setConfirmed(true);}} disabled={selected===null||conf===null} style={{...S.btn(color,selected!==null&&conf!==null),opacity:selected===null||conf===null?0.4:1,flex:1}}>CONFIRM ANSWER</button>
+          :<button onClick={handleNext} style={{...S.btn(color,true),flex:1}}>{qIdx+1<total?"NEXT QUESTION →":"SEE RESULTS"}</button>
+        }
+      </div>
+    </div></div>
+  );
+}
+
+function ResultScreen({quizState,setScreen,setQuizState,save,updateSave}){
+  const {questions,answers,finalPct,mode,domain,startTime,finishedAt}=quizState;
+  const total=questions.length;
+  const correct=answers.filter(a=>a.selected===a.correct).length;
+  const passed=finalPct>=80;
+  const sc=scoreColor(finalPct);
+  const sureTotal=answers.filter(a=>a.confidence==="sure").length;
+  const sureCorrect=answers.filter(a=>a.confidence==="sure"&&a.selected===a.correct).length;
+  const guessTotal=answers.filter(a=>a.confidence==="guess").length;
+  const guessCorrect=answers.filter(a=>a.confidence==="guess"&&a.selected===a.correct).length;
+  const calibPct=sureTotal>0?Math.round((sureCorrect/sureTotal)*100):null;
+  const domainBreakdown=DOMAINS.map(d=>{
+    const qs=answers.filter((_,i)=>questions[i]?.domainId===d.id);
+    if(!qs.length)return null;
+    const c=qs.filter(a=>a.selected===a.correct).length;
+    return{domain:d,correct:c,total:qs.length,pct:Math.round((c/qs.length)*100)};
+  }).filter(Boolean);
+  const topicMap={};
+  answers.forEach((a,i)=>{const q=questions[i];if(!q)return;if(!topicMap[q.topic])topicMap[q.topic]={correct:0,total:0,domain:q.domainName};topicMap[q.topic].total++;if(a.selected===a.correct)topicMap[q.topic].correct++;});
+  const weakTopics=Object.entries(topicMap).map(([t,d])=>({topic:t,pct:Math.round((d.correct/d.total)*100),domain:d.domain,total:d.total})).filter(t=>t.pct<80).sort((a,b)=>a.pct-b.pct).slice(0,5);
+  const tips={"Display Types":"Know IPS (wide angle/color accurate), TN (fast/narrow angle), OLED (true blacks/self-emissive). Screen = digitizer + display — test each separately.","Mobile Connectors":"USB-C = reversible + data + power + video. Lightning = Apple only. Micro-USB = old Android. USB-C Alt Mode = DisplayPort/HDMI over USB-C.","Laptop Hardware":"SO-DIMM = laptop RAM (smaller). DDR4/DDR5 not interchangeable. Check max RAM capacity in laptop specs before ordering.","Mobile Synchronization":"Cloud sync = wireless automatic. USB = wired manual. MDM = manages corporate mobile devices remotely including remote wipe.","Mobile OS":"Remote wipe requires MDM enrollment. Android and iOS both support MDM. Know the difference between personal and corporate device policies.","IP Addressing":"169.254.x.x = APIPA = no DHCP server. 127.0.0.1 = loopback. Private ranges: 10.x, 172.16-31.x, 192.168.x.","Ports & Protocols":"Must-know: FTP=21, SSH=22, Telnet=23, SMTP=25, DNS=53, DHCP=67/68, HTTP=80, HTTPS=443, SMB=445, RDP=3389.","Wireless":"Non-overlapping 2.4GHz channels: 1, 6, 11 only. 802.11n = first dual-band. 802.11ax = Wi-Fi 6 = latest.","Memory":"DDR5 = 1.1V, on-die ECC, dual sub-channels. NOT compatible with DDR4 slots. SO-DIMM = laptop RAM.","Storage":"SATA = 550MB/s max. NVMe PCIe Gen4 = 7000MB/s. M.2 slot type (SATA vs PCIe) must match drive protocol.","Motherboards":"Mini-ITX = smallest with x16 PCIe slot. ATX = standard. Check socket compatibility before CPU purchase.","RAID":"RAID 0 = fast, no redundancy. RAID 1 = mirror. RAID 5 = parity, 3+ drives. RAID 10 = mirror+stripe, 4 drives.","Hypervisors":"Type 1 = bare metal (ESXi, Hyper-V). Type 2 = hosted (Workstation, VirtualBox). Enterprise uses Type 1.","Cloud Models":"IaaS = you manage OS up. PaaS = you manage app + data. SaaS = you manage nothing. Shared responsibility changes per model.","Virtualization":"Snapshots = point-in-time rollback. Templates = rapid consistent deployment. Containers = share host kernel.","Windows Editions":"Home = no domain join. Pro = domain join + BitLocker + Group Policy. Enterprise = advanced management.","Windows Tools":"chkdsk = disk/filesystem. sfc = system files. DISM = component store. Order: DISM first if sfc fails.","Registry Hives":"HKLM = all users on machine. HKCU = current user only. regedit = registry editor. Backup before editing.","macOS":"FileVault = disk encryption. Time Machine = backup. Migration Assistant = restore from Time Machine. Terminal = CLI.","Linux Commands":"chmod 755 = rwxr-xr-x. chmod 644 = rw-r--r--. grep -ri = case-insensitive recursive search. sudo = run as root.","Malware":"Trojan = disguised, no self-replication. Worm = self-propagates. Ransomware = encrypts + extorts. Rootkit = hides.","Social Engineering":"Phishing = mass email. Spear = targeted email. Vishing = voice. Smishing = SMS. Tailgating = physical piggybacking.","Physical Security":"Mantrap = prevents tailgating. Cable lock = theft prevention. Smart card = identity + access log. Badge + PIN = MFA.","Data Destruction":"Delete/format = recoverable. DoD wipe = multiple passes = not recoverable for HDDs. Physical destruction = ultimate.","Post":"POST beep codes identify hardware failures before video is available. Cross-reference with motherboard manual for exact meaning.","BSOD":"MEMORY_MANAGEMENT = RAM. INACCESSIBLE_BOOT_DEVICE = storage/driver. SYSTEM_SERVICE_EXCEPTION = driver corruption.","Boot Failures":"Startup Repair = automated WinRE tool for boot issues. bootrec /fixmbr + /rebuildbcd = manual repair for MBR/BCD.","Malware Removal":"Step 1 = Quarantine (isolate from network). Then: disable System Restore, Safe Mode scan, re-enable, educate user.","Change Management":"Rollback plan required before any change. CAB reviews and approves changes. Document before AND after.","Backups":"Full+incremental = need full + ALL incrementals. Full+differential = need full + LATEST differential only.","Safety":"ESD wrist strap = most important ESD protection. CRT capacitors = lethal voltage even when unplugged. Lift with legs.","Compliance":"HIPAA = health data. PCI-DSS = payment cards. GDPR = EU personal data. Verify which applies before disposing media."};
+  const timeTaken=startTime&&finishedAt?Math.round((finishedAt-startTime)/1000):null;
+  return(
+    <div style={S.app}><div style={S.scan}/>
+    {passed&&<Celebration/>}
+    <div style={S.wrap}>
+      <div style={{textAlign:"center",padding:"28px 16px 20px"}}>
+        <div style={{fontSize:10,color:C.dim,letterSpacing:3,marginBottom:8}}>{mode==="practice"?"PRACTICE TEST COMPLETE":mode==="daily"?"DAILY PRACTICE COMPLETE":`DOMAIN ${domain?.id||""} COMPLETE`}</div>
+        <div style={{fontSize:68,fontWeight:"bold",color:sc,textShadow:`0 0 32px ${sc}`,lineHeight:1}}>{finalPct}%</div>
+        <div style={{fontSize:13,color:C.dim,marginTop:8}}>{correct} / {total} correct</div>
+        {timeTaken&&<div style={{fontSize:11,color:C.dim,marginTop:4}}>Time: {Math.floor(timeTaken/60)}m {timeTaken%60}s</div>}
+        <div style={{fontSize:14,color:sc,letterSpacing:3,marginTop:10,fontWeight:"bold"}}>{passed?"✓ PASSING":"✗ NEEDS WORK"}</div>
+      </div>
+      <div style={S.divider}/>
+      {domainBreakdown.length>1&&(<div style={{marginBottom:20}}>
+        <div style={S.label()}>Domain Breakdown</div>
+        {domainBreakdown.map(({domain:d,correct:c,total:t,pct})=>(<div key={d.id} style={{marginBottom:10}}>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><div style={{fontSize:12,color:d.color}}>{d.icon} {d.name}</div><div style={{fontSize:12,color:scoreColor(pct),fontWeight:"bold"}}>{pct}% ({c}/{t})</div></div>
+          <ProgressBar pct={pct} color={d.color}/>
+        </div>))}
+      </div>)}
+      {sureTotal>0&&(<div style={{...S.card(),marginBottom:16}}>
+        <div style={S.label(C.gold)}>Confidence Calibration</div>
+        <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
+          <div style={{flex:1}}><div style={{fontSize:11,color:C.dim,marginBottom:4}}>When you said I Know This</div><div style={{fontSize:20,fontWeight:"bold",color:calibPct>=80?C.green:C.orange}}>{calibPct}%</div><div style={{fontSize:11,color:C.dim}}>{sureCorrect}/{sureTotal} questions</div>{calibPct<80&&<div style={{fontSize:11,color:C.orange,marginTop:4}}>Review your wrong-but-confident answers first.</div>}</div>
+          {guessTotal>0&&<div style={{flex:1}}><div style={{fontSize:11,color:C.dim,marginBottom:4}}>When you said Educated Guess</div><div style={{fontSize:20,fontWeight:"bold",color:scoreColor(Math.round(guessCorrect/guessTotal*100))}}>{Math.round(guessCorrect/guessTotal*100)}%</div><div style={{fontSize:11,color:C.dim}}>{guessCorrect}/{guessTotal} questions</div></div>}
+        </div>
+      </div>)}
+      {weakTopics.length>0&&(<div style={{...S.card(),marginBottom:16}}>
+        <div style={S.label(C.red)}>Weak Spots Detected</div>
+        {weakTopics.map(t=>(<div key={t.topic} style={{marginBottom:14}}>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><div><span style={{fontSize:12,color:C.text}}>{t.topic}</span><span style={{fontSize:10,color:C.dim,marginLeft:8}}>{t.domain}</span></div><span style={{fontSize:12,color:scoreColor(t.pct),fontWeight:"bold"}}>{t.pct}%</span></div>
+          <ProgressBar pct={t.pct} color={scoreColor(t.pct)}/>
+          {tips[t.topic]&&<div style={{fontSize:11,color:C.dim,lineHeight:1.7,marginTop:6,paddingLeft:8,borderLeft:`2px solid ${C.muted}`}}>{tips[t.topic]}</div>}
+        </div>))}
+      </div>)}
+      {mode==="practice"&&(<div style={{...S.card(passed?C.green:C.orange),marginBottom:16}}>
+        <div style={S.label(passed?C.green:C.orange)}>Exam Readiness Verdict</div>
+        {passed?<div style={{fontSize:12,color:C.dim,lineHeight:1.8}}>Strong result. You are at exam-passing level. Run 2-3 more practice tests to confirm consistency before booking your exam date.</div>:<div style={{fontSize:12,color:C.dim,lineHeight:1.8}}>Not there yet — target the weak spots above. One flashcard drill per weak domain, then retry the domain quiz before retaking the practice test.</div>}
+      </div>)}
+      <div style={S.row}><button onClick={()=>setScreen("review")} style={{...S.btn(C.d2,true),flex:1}}>REVIEW ALL ANSWERS</button></div>
+      <div style={{...S.row,marginTop:8}}>
+        <button onClick={()=>setScreen("home")} style={{...S.btn(C.dim),flex:1}}>HOME</button>
+        {mode==="domain"&&<button onClick={()=>{setQuizState({...quizState,qIdx:0,answers:[],score:0,confidence:[]});setScreen("domainQuiz");}} style={{...S.btn(quizState.domain?.color||C.d2),flex:1}}>RETRY</button>}
+        {mode==="practice"&&<button onClick={()=>setScreen("practiceGate")} style={{...S.btn(C.d2),flex:1}}>RETAKE</button>}
+        {mode==="daily"&&<button onClick={()=>setScreen("daily")} style={{...S.btn(C.gold),flex:1}}>NEW DAILY</button>}
+      </div>
+    </div></div>
+  );
+}
+
+function ReviewScreen({quizState,setScreen}){
+  const {questions,answers}=quizState;
+  const [idx,setIdx]=useState(0);
+  const q=questions[idx];
+  const a=answers[idx];
+  const isCorrect=a?.selected===a?.correct;
+  const total=questions.length;
+  const wrongIdxs=answers.map((a,i)=>a.selected!==a.correct?i:-1).filter(i=>i>=0);
+  const color=q.domainColor||C.d2;
+  return(
+    <div style={S.app}><div style={S.scan}/>
+    <div style={S.wrap}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <button onClick={()=>setScreen("result")} style={{...S.btn(color),padding:"4px 12px",fontSize:10}}>← RESULTS</button>
+        <div style={{fontSize:11,color:C.dim,letterSpacing:2}}>REVIEW {idx+1}/{total}</div>
+        <div style={{fontSize:11,color:C.red}}>{wrongIdxs.length} missed</div>
+      </div>
+      {wrongIdxs.length>0&&(<div style={{marginBottom:14}}>
+        <div style={S.label(C.red)}>Jump to Missed</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{wrongIdxs.map(i=>(<button key={i} onClick={()=>setIdx(i)} style={{...S.btn(i===idx?C.red:C.muted,i===idx),padding:"3px 10px",fontSize:10}}>Q{i+1}</button>))}</div>
+      </div>)}
+      <div style={{...S.card(isCorrect?C.green:C.red)}}>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+          <div><span style={S.tag(color)}>{q.domainName||""}</span><span style={{...S.tag(C.muted),marginLeft:6}}>{q.topic}</span></div>
+          <div style={{fontSize:11,letterSpacing:2,color:isCorrect?C.green:C.red,fontWeight:"bold"}}>{isCorrect?"CORRECT":"WRONG"}</div>
+        </div>
+        <div style={{fontSize:14,lineHeight:1.7,color:C.text,marginBottom:16}}>{q.q}</div>
+        {q.options.map((opt,i)=>(<div key={i} style={{padding:"10px 14px",marginBottom:8,borderRadius:6,border:`1px solid ${i===q.answer?C.green:i===a?.selected&&i!==q.answer?C.red:C.border}`,background:i===q.answer?`rgba(${hexRgb(C.green)},0.08)`:i===a?.selected&&i!==q.answer?`rgba(${hexRgb(C.red)},0.08)`:"transparent",color:i===q.answer?C.green:i===a?.selected&&i!==q.answer?C.red:C.dim,fontSize:13}}>{i===q.answer?"✓ ":i===a?.selected&&i!==q.answer?"✗ ":"  "}{opt}</div>))}
+        {a?.confidence&&<div style={{fontSize:11,color:C.muted,marginBottom:10}}>You answered: <span style={{color:a.confidence==="sure"?(isCorrect?C.green:C.red):C.orange}}>{a.confidence==="sure"?"I Know This":"Educated Guess"}</span>{a.confidence==="sure"&&!isCorrect&&<span style={{color:C.red}}> — overconfidence flag</span>}</div>}
+        <div style={{padding:"12px 14px",background:`rgba(${hexRgb(color)},0.05)`,border:`1px solid ${color}`,borderRadius:8,marginBottom:10}}>
+          <div style={S.label(color)}>Explanation</div>
+          <div style={{fontSize:12,color:C.dim,lineHeight:1.8,marginBottom:10}}>{q.explanation}</div>
+          <div style={{fontSize:11,color:C.muted,letterSpacing:1,marginBottom:4}}>ANALOGY</div>
+          <div style={{fontSize:12,color:C.text,lineHeight:1.8,paddingLeft:10,borderLeft:`2px solid ${color}`,marginBottom:10}}>{q.analogy}</div>
+          <div style={{fontSize:11,color:C.muted,letterSpacing:1,marginBottom:4}}>IN YOUR WORK</div>
+          <div style={{fontSize:12,color:C.dim,lineHeight:1.8}}>{q.realWorld}</div>
+        </div>
+      </div>
+      <div style={S.row}>
+        {idx>0&&<button onClick={()=>setIdx(i=>i-1)} style={{...S.btn(color),flex:1}}>← PREV</button>}
+        {idx<total-1&&<button onClick={()=>setIdx(i=>i+1)} style={{...S.btn(color,true),flex:1}}>NEXT →</button>}
+        {idx===total-1&&<button onClick={()=>setScreen("result")} style={{...S.btn(color,true),flex:1}}>DONE</button>}
+      </div>
+    </div></div>
+  );
+}
