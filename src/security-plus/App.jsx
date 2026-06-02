@@ -272,7 +272,7 @@ function HomeScreen({save,dp,practiceUnlocked,setScreen,setQuizState,setFcState,
         </div>
       )}
       <MenuCard icon="📚" title="Domain Study" sub="5 domains · SY0-701 aligned" color={C.d4} onClick={()=>setScreen("domainSelect")}/>
-      <MenuCard icon="⚡" title="Daily Quick Practice" sub="10 questions · Based on domains you have completed" color={C.gold} onClick={()=>setScreen("daily")}/>
+      <MenuCard icon="⚡" title="Daily Quick Practice" sub={`10 questions · ${Object.keys(save.weakQuestions||{}).length>0?`${Object.keys(save.weakQuestions||{}).length} weak questions flagged`:"Based on domains you have completed"}`} color={C.gold} onClick={()=>setScreen("daily")}/>
       <MenuCard icon="🃏" title="Flashcards" sub="Flip · Drill · Browse · Acronyms & Analogies" color={C.purple} onClick={()=>{setFcState(null);setScreen("flashcards");}}/>
       <MenuCard icon={practiceUnlocked?"🎯":"🔒"} title="Full Practice Test" sub={practiceUnlocked?`90 questions · Timed · Full report${lastPractice?` · Last: ${lastPractice.pct}%`:""}` :"Complete all 5 domains to unlock"} color={practiceUnlocked?C.d4:C.muted} onClick={()=>setScreen("practiceGate")} locked={!practiceUnlocked}/>
       <div style={{marginTop:24}}>
@@ -576,8 +576,13 @@ function DailyScreen({dp,setScreen,setQuizState}){
   const attempted=DOMAINS.filter(d=>dp[d.id]);
   const available=attempted.length>0?attempted:DOMAINS.slice(0,1);
   function startDaily(domains){
+    const wq=save.weakQuestions||{};
+    const weakKeys=new Set(Object.keys(wq));
     const pool=domains.flatMap(d=>d.questions.map(q=>({...q,domainId:d.id,domainName:d.name,domainColor:d.color})));
-    setQuizState({mode:"daily",questions:shuffle(pool).slice(0,10),qIdx:0,answers:[],score:0,confidence:[],domainIds:domains.map(d=>d.id)});
+    const weakPool=shuffle(pool.filter(q=>weakKeys.has(q.q.slice(0,40))));
+    const regularPool=shuffle(pool.filter(q=>!weakKeys.has(q.q.slice(0,40))));
+    const picked=shuffle([...weakPool.slice(0,7),...regularPool.slice(0,Math.max(3,10-weakPool.length))]).slice(0,10);
+    setQuizState({mode:"daily",questions:picked,qIdx:0,answers:[],score:0,confidence:[],domainIds:domains.map(d=>d.id)});
     setScreen("dailyQuiz");
   }
   return(
@@ -672,12 +677,19 @@ function QuizScreen({quizState,setQuizState,save,updateSave,setScreen,mode}){
     const newAnswers=[...answers,{qIdx,selected,correct:q.answer,confidence:conf}];
     const newScore=score+(isCorrect?1:0);
     const newConf=[...confidence,conf];
-    if(qIdx+1<total){setQuizState({...quizState,qIdx:qIdx+1,answers:newAnswers,score:newScore,confidence:newConf});setSelected(null);setConfirmed(false);setConf(null);}
-    else{
+    const qKey=q.q.slice(0,40);
+    const wq={...(save.weakQuestions||{})};
+    if(!isCorrect){wq[qKey]={missed:(wq[qKey]?.missed||0)+1,correct:0};}
+    else if(wq[qKey]){const s=(wq[qKey].correct||0)+1;if(s>=2){delete wq[qKey];}else{wq[qKey]={...wq[qKey],correct:s};}}
+    if(qIdx+1<total){
+      await updateSave({weakQuestions:wq});
+      setQuizState({...quizState,qIdx:qIdx+1,answers:newAnswers,score:newScore,confidence:newConf});setSelected(null);setConfirmed(false);setConf(null);
+    }else{
       const pct=Math.round((newScore/total)*100);
       const finalState={...quizState,answers:newAnswers,score:newScore,confidence:newConf,finalPct:pct,finishedAt:Date.now()};
-      if(mode==="domain"){const dp=save.domainProgress||{};const prev=dp[quizState.domain.id]||{};await updateSave({domainProgress:{...dp,[quizState.domain.id]:{bestScore:Math.max(pct,prev.bestScore||0),attempts:(prev.attempts||0)+1,lastPct:pct}}});}
-      if(mode==="practice"){const hist=save.practiceHistory||[];await updateSave({practiceHistory:[...hist,{pct,date:Date.now(),total}]});}
+      if(mode==="domain"){const dp=save.domainProgress||{};const prev=dp[quizState.domain.id]||{};await updateSave({weakQuestions:wq,domainProgress:{...dp,[quizState.domain.id]:{bestScore:Math.max(pct,prev.bestScore||0),attempts:(prev.attempts||0)+1,lastPct:pct}}});}
+      else if(mode==="practice"){const hist=save.practiceHistory||[];await updateSave({weakQuestions:wq,practiceHistory:[...hist,{pct,date:Date.now(),total}]});}
+      else{await updateSave({weakQuestions:wq});}
       setQuizState(finalState);setScreen("result");
     }
   }
