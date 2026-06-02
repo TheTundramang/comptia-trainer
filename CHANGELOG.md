@@ -7,11 +7,51 @@ Format: **[Version] — Date — Author(s) — What changed and why.**
 
 ## [Unreleased] — In Progress
 
+*Nothing pending — all work committed and pushed.*
+
+---
+
+## [0.6.0] — 2026-06-01 — Tier 2 Part 2 of 3
+
+### Performance
+- Code-split all three cert trainers via `React.lazy()` + `Suspense` in `Landing.jsx` *(Casey, Infrastructure)*
+- Each cert App.jsx is now a separate chunk loaded on demand — only downloaded when the user selects that cert
+- Initial bundle: 519KB (1 chunk) → 148KB landing + 3 cert chunks loaded on click
+- Initial load time reduced by ~71% on first visit
+- Vite chunk-size warning fully resolved
+- Loading spinner displayed during cert chunk fetch on slower connections
+- **Commit:** `4b1517d`
+
+---
+
+## [0.5.0] — 2026-06-01 — Tier 2 Part 1 of 3
+
+### CI/CD
+- Added `.github/workflows/ci.yml` — GitHub Actions pipeline runs on every push and PR to main *(Riley, Team Lead)*
+  - Installs dependencies, builds the app, starts `vite preview`, waits for server readiness, runs E2E smoke tests
+  - Pipeline fails automatically if build breaks or any smoke test fails
+  - Prevents broken code from ever reaching main undetected
+- Added `e2e/smoke.mjs` — 11-check Playwright smoke test, owned by Jordan (QA)
+  - Tests: all 3 cert cards visible, each cert launches with correct header, ← ALL CERTS navigation, A+ quiz flow, localStorage key isolation, zero console errors
+  - Exits non-zero on any failure — CI blocks the merge
+- Added `playwright` and `wait-on` as dev dependencies for CI compatibility
+- **Commit:** `30471ad`
+
+---
+
+## [0.4.1] — 2026-06-01 — Tier 1 Security & Documentation
+
 ### Security
-- Added `window.storage` shim validation in all three cert App.jsx files — validates type signature and parse shape before trusting injected global *(Priya, Security Architect)*
-- Corrected localStorage key names in SECURITY.md (aplus-v1, secplus-v1) *(Priya, Security Architect)*
-- Added `<meta>` Content-Security-Policy tag to index.html as a hosting-independent baseline *(Evan, App Security)*
-- Fixed page title from "CompTIA Network+ Trainer" → "CompTIA Trainer" *(Marcus, PM)*
+- Added `window.storage` shim validation in all three cert App.jsx files — validates type signature and parsed object shape before trusting injected global *(Priya, Security Architect)*
+- Corrected localStorage key names in SECURITY.md: `aplus-v1`, `secplus-v1` (docs previously said v2) *(Priya, Security Architect)*
+- Added `scripts/add-sri.js` — post-build script injects `sha384` integrity attributes into `dist/index.html` automatically on every `npm run build` *(Evan, App Security)*
+- Bound dev server to `127.0.0.1` only in `vite.config.js` — prevents dev server from binding to all interfaces *(Evan, App Security)*
+- Added `<meta>` Content-Security-Policy tag to `index.html` — hosting-independent CSP baseline regardless of server header config *(Evan, App Security)*
+- Fixed page title: "CompTIA Network+ Trainer" → "CompTIA Trainer" *(Marcus, PM)*
+
+### Documentation
+- Added `CHANGELOG.md` — full project history with version tags and per-team-member attribution *(Logan, Operations)*
+- **Commit:** `b904532`
 
 ---
 
