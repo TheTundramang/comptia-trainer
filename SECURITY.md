@@ -19,7 +19,7 @@ Implications:
 
 ## 2. Data Storage
 
-Study progress is persisted exclusively in the browser's `localStorage` under cert-specific keys (e.g., `netplus-v2`, `aplus-v2`, `secplus-v2`). The stored data consists only of:
+Study progress is persisted exclusively in the browser's `localStorage` under cert-specific keys (`netplus-v2`, `aplus-v1`, `secplus-v1`). The stored data consists only of:
 
 - Quiz scores and streak counters
 - Starred / bookmarked flashcard IDs
@@ -97,7 +97,7 @@ When adding a new cert module (a new `App.jsx` inside its own `src/<cert-name>/`
 - [ ] No `fetch()`, `XMLHttpRequest`, `import()` (dynamic), or WebSocket calls — all content must be static constants.
 - [ ] No hardcoded API keys, tokens, passwords, or license keys.
 - [ ] No `innerHTML` or `dangerouslySetInnerHTML` used with any non-literal string.
-- [ ] `localStorage` key is unique (e.g., `aplus-v2`, `secplus-v2`) to prevent data collisions between certs.
+- [ ] `localStorage` key is unique (e.g., `yourcert-v1`) to prevent data collisions between certs. Existing keys: `netplus-v2`, `aplus-v1`, `secplus-v1`.
 - [ ] New cert is registered in `src/Landing.jsx` under the `CERTS` array with a correct `id` and matching `status`.
 - [ ] `npm audit` passes with no high or critical findings after adding any new dev dependency.
 
@@ -119,4 +119,4 @@ You can expect an acknowledgement within a few days. Because this is a client-si
 
 ---
 
-*Last reviewed: 2026-05-31*
+*Last reviewed: 2026-06-01*

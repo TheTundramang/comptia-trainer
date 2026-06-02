@@ -10,8 +10,9 @@ function hexRgb(hex){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,
 function scoreColor(p){return p>=80?C.green:p>=65?C.orange:C.red;}
 function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 const SK="secplus-v1";
-async function loadSave(){try{if(window.storage){const r=await window.storage.get(SK);if(r?.value)return JSON.parse(r.value);}else{const r=localStorage.getItem(SK);if(r)return JSON.parse(r);}}catch{}return{};}
-async function writeSave(d){try{if(window.storage)await window.storage.set(SK,JSON.stringify(d));else localStorage.setItem(SK,JSON.stringify(d));}catch{}}
+const hasStorageShim=typeof window.storage?.get==="function"&&typeof window.storage?.set==="function";
+async function loadSave(){try{let raw=null;if(hasStorageShim){const r=await window.storage.get(SK);raw=r?.value??null;}else{raw=localStorage.getItem(SK);}if(!raw)return{};const p=JSON.parse(raw);return(p&&typeof p==="object"&&!Array.isArray(p))?p:{};}catch{}return{};}
+async function writeSave(d){try{if(hasStorageShim)await window.storage.set(SK,JSON.stringify(d));else localStorage.setItem(SK,JSON.stringify(d));}catch{}}
 
 const FLASHCARD_DOMAINS=[
   {id:"fc1",name:"Cryptography & PKI",color:C.d1,icon:"🔑",cards:[
