@@ -1,7 +1,8 @@
-import { useState } from "react";
-import NetworkPlusApp from "./network-plus/App.jsx";
-import APlusApp from "./a-plus/App.jsx";
-import SecurityPlusApp from "./security-plus/App.jsx";
+import { useState, Suspense, lazy } from "react";
+
+const NetworkPlusApp  = lazy(() => import("./network-plus/App.jsx"));
+const APlusApp        = lazy(() => import("./a-plus/App.jsx"));
+const SecurityPlusApp = lazy(() => import("./security-plus/App.jsx"));
 
 const C = {
   bg:"#08090f", surface:"#0d1120", border:"#1a2540", muted:"#2a3a55",
@@ -28,11 +29,19 @@ const CERTS = [
   },
 ];
 
+function Loading() {
+  return (
+    <div style={{minHeight:"100vh",background:C.bg,fontFamily:"'Courier New',monospace",display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{color:C.dim,letterSpacing:4,fontSize:12}}>LOADING...</div>
+    </div>
+  );
+}
+
 export default function Landing() {
   const [selected, setSelected] = useState(null);
-  if (selected === "netplus") return <NetworkPlusApp onExit={() => setSelected(null)} />;
-  if (selected === "aplus") return <APlusApp onExit={() => setSelected(null)} />;
-  if (selected === "secplus") return <SecurityPlusApp onExit={() => setSelected(null)} />;
+  if (selected === "netplus") return <Suspense fallback={<Loading/>}><NetworkPlusApp onExit={() => setSelected(null)} /></Suspense>;
+  if (selected === "aplus")   return <Suspense fallback={<Loading/>}><APlusApp onExit={() => setSelected(null)} /></Suspense>;
+  if (selected === "secplus") return <Suspense fallback={<Loading/>}><SecurityPlusApp onExit={() => setSelected(null)} /></Suspense>;
   return <LandingScreen onSelect={setSelected} />;
 }
 
