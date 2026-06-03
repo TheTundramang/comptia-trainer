@@ -11,6 +11,77 @@ Format: **[Version] — Date — Author(s) — What changed and why.**
 
 ---
 
+## [1.2.0] — 2026-06-02 — UI Scrum Sprint
+
+### Infrastructure
+- **Shared component library** — extracted `ProgressBar`, `MenuCard`, `BackBtn`, `ThemeToggle`, `Celebration`, `Loading` into `src/ui.jsx`. Eliminates 15 duplicate definitions across 3 cert apps. Single source of truth. *(Casey, Infra)*
+- **Team skill files** — created `.claude/commands/` with 11 skill files (one per team role). Each documents domain ownership, process, and cross-references. *(Marcus, PM — all team members authored their own)*
+- **HOW TO USE extracted** — moved hardcoded instructional text to `HOW_TO_USE` constants at the top of each cert app for easy future updates. *(Logan, Ops)*
+
+### Security
+- **CSP regression fixed** — moved anti-FOUC theme init from inline `<script>` to `public/theme-init.js`. Restores `script-src 'self'` without `'unsafe-inline'`. SRI hash auto-injected. *(Evan, App Security)*
+- **SECURITY.md updated** — documented `theme` localStorage key, `prevScore` field, and full study progress data model shape. *(Priya, Security Architect)*
+
+### Features
+- **In-quiz quick reference** — 📖 button in quiz header opens searchable term/acronym overlay. Searches all flashcard data client-side without leaving the quiz. *(Sasha, Sec+ Dev)*
+- **Weak spots accordion** — expandable missed questions on results screen. Shows exact wrong answers per weak topic without navigating to full review. *(Devon, Sec+ D1-2)*
+- **Progress delta indicators** — `+N%` / `-N%` badge on domain progress bars shows trend vs previous attempt. `prevScore` persisted in domain quiz save. *(Taylor, Sec+ D3-5)*
+- **Practice test domain checklist** — locked practice card shows inline domain completion checklist instead of plain "complete all N domains" text. *(Taylor, Sec+ D3-5)*
+
+### UI / UX
+- **Full UI overhaul shipped** — Poppins font replacing Courier New, light/dark mode toggle (☀️/🌙) fixed bottom-right on every screen, CSS custom properties for theme colors. *(UI Overhaul branch merged)*
+- **Light mode border fix** — `--c-border` in light theme darkened from `#dde3f8` to `#a8b8d8` for visible card definition. *(Marcus, PM)*
+- **Mobile tap targets** — answer option `marginBottom` 10→14px, BackBtn font 10→13px. *(Riley, Team Lead)*
+- **Quiz progress bar** — 4→8px for better mid-quiz readability. *(Jordan, QA)*
+- **Confidence buttons stacked** — full-width vertical layout replacing side-by-side to prevent mobile mis-taps. *(Jordan, QA)*
+- **Confirm hint text** — dynamic hint below disabled CONFIRM ANSWER explains what's still needed. *(Jordan, QA)*
+- **A+ Switch Exam relocated** — moved from cramped absolute header to inline underline link beside mode label. *(Alex, A+ Dev)*
+- **Domain progress bars thickened** — 3→5px on home screen for consistency with quiz bar. *(Alex, A+ Dev)*
+- **Flashcard Study Aids redesigned** — Memory Trick and Analogy buttons now full-width, 15px, with ▼/▲ indicator. Fill with color when expanded. "Study Aids" section header added. *(Kai, Core 1)*
+- **Explanation panel structured** — dividers between Explanation / Analogy / In Your Work. Analogy anchored to domain color, In Your Work gets green accent bar. 12→13px text. *(Morgan, Core 2)*
+
+### New Team Members (2026-06-02)
+- Sam (GRC Analyst), Avery (UX Designer), River (Growth & Marketing), Quinn (Accessibility Specialist), Blake (Data Analyst) — all onboarded with skill files and work assignments.
+
+---
+
+## [0.9.0] — 2026-06-01 — Tier 2 Part 3 of 3
+
+### Feature — Spaced Repetition & Missed Question Tracker
+- Implemented missed question tracking across all three cert trainers *(Jordan, QA / Integration)*
+- **Tracking logic (QuizScreen):** Wrong answer → question flagged in `save.weakQuestions`. Correct on a flagged question → streak incremented. Two consecutive correct answers → question cleared (mastered).
+- **Daily practice prioritization (DailyScreen):** Weak questions fill up to 7 of 10 daily slots. Remaining slots filled from regular pool. Flagged questions keep surfacing until mastered.
+- **Home screen indicator:** Daily Practice card shows "N weak questions flagged" when weak questions exist. Reverts to standard subtitle when slate is clean.
+- Applies to: `src/App.jsx` (Network+), `src/a-plus/App.jsx`, `src/security-plus/App.jsx`
+- Progress persists to localStorage per cert via existing `save` object (`weakQuestions` key)
+- **Commit:** `170e5fe`
+
+---
+
+## [0.8.0] — 2026-06-01 — Tier 2 Part 2 of 3
+
+### Performance — Code Splitting
+- Replaced static imports in `Landing.jsx` with `React.lazy()` + `Suspense` *(Casey, Infrastructure)*
+- Each cert trainer is now a separate JS chunk loaded on demand when the user selects it
+- Initial bundle: 519KB (1 chunk) → 148KB landing page + 3 cert chunks fetched on click
+- Initial load time reduced ~71%. Vite chunk-size warning fully resolved.
+- Loading spinner displayed while cert chunk downloads on slower connections
+- **Commit:** `4b1517d`
+
+---
+
+## [0.7.0] — 2026-06-01 — Tier 2 Part 1 of 3
+
+### CI/CD — GitHub Actions Pipeline
+- Added `.github/workflows/ci.yml` — runs on every push and PR to `main` *(Riley, Team Lead)*
+- Pipeline: install → build (with SRI) → Playwright install → start preview server → wait for readiness → run smoke tests
+- Fails automatically if build errors or any of 11 smoke tests fail — broken code cannot reach main
+- Added `e2e/smoke.mjs` — canonical 11-check smoke test owned by Jordan (QA)
+- Added `playwright` and `wait-on` as dev dependencies
+- **Commit:** `30471ad`
+
+---
+
 ## [0.6.0] — 2026-06-01 — Tier 2 Part 2 of 3
 
 ### Performance

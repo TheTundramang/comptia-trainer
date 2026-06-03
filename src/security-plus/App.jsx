@@ -12,6 +12,7 @@ function hexRgb(hex){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,
 function scoreColor(p){return p>=80?C.green:p>=65?C.orange:C.red;}
 function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 const SK="secplus-v1";
+const HOW_TO_USE="Work through each Domain in order. Use Flashcards anytime for quick review of cryptography, threats, and frameworks. After all 5 domains, the Full Practice Test unlocks. Target 80%+ before exam day.";
 const hasStorageShim=typeof window.storage?.get==="function"&&typeof window.storage?.set==="function";
 async function loadSave(){try{let raw=null;if(hasStorageShim){const r=await window.storage.get(SK);raw=r?.value??null;}else{raw=localStorage.getItem(SK);}if(!raw)return{};const p=JSON.parse(raw);return(p&&typeof p==="object"&&!Array.isArray(p))?p:{};}catch{}return{};}
 async function writeSave(d){try{if(hasStorageShim)await window.storage.set(SK,JSON.stringify(d));else localStorage.setItem(SK,JSON.stringify(d));}catch{}}
@@ -298,7 +299,7 @@ function HomeScreen({save,dp,practiceUnlocked,setScreen,setQuizState,setFcState,
         })}
       </div>
       <div style={{marginTop:20,padding:"12px 16px",border:`1px solid ${C.border}`,borderRadius:8,fontSize:11,color:C.dim,lineHeight:1.8}}>
-        <span style={{color:C.d4}}>HOW TO USE: </span>Work through each Domain in order. Use Flashcards anytime for quick review of cryptography, threats, and frameworks. After all 5 domains, the Full Practice Test unlocks. Target 80%+ before exam day.
+        <span style={{color:C.d4}}>HOW TO USE: </span>{HOW_TO_USE}
       </div>
     </div></div>
   );

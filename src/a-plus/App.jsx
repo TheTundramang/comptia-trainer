@@ -12,6 +12,11 @@ function hexRgb(hex){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,
 function scoreColor(p){return p>=80?C.green:p>=65?C.orange:C.red;}
 function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 const SK="aplus-v1";
+const HOW_TO_USE={
+  core1:"Work through all 5 Core 1 domains in order. Use Flashcards anytime. After all 5 domains, the Practice Test (220-1101) unlocks. Target 80%+ before exam day.",
+  core2:"Work through all 4 Core 2 domains in order. Use Flashcards anytime. After all 4 domains, the Practice Test (220-1102) unlocks. Target 80%+ before exam day.",
+  all:"Work through Core 1 domains (1-5) then Core 2 domains (6-9). Use Flashcards anytime. After all 9 domains, the Full Practice Test unlocks. Target 80%+ before exam day.",
+};
 const hasStorageShim=typeof window.storage?.get==="function"&&typeof window.storage?.set==="function";
 async function loadSave(){try{let raw=null;if(hasStorageShim){const r=await window.storage.get(SK);raw=r?.value??null;}else{raw=localStorage.getItem(SK);}if(!raw)return{};const p=JSON.parse(raw);return(p&&typeof p==="object"&&!Array.isArray(p))?p:{};}catch{}return{};}
 async function writeSave(d){try{if(hasStorageShim)await window.storage.set(SK,JSON.stringify(d));else localStorage.setItem(SK,JSON.stringify(d));}catch{}}
@@ -407,7 +412,7 @@ function HomeScreen({save,dp,practiceUnlocked,setScreen,setQuizState,setFcState,
         })}
       </div>
       <div style={{marginTop:20,padding:"12px 16px",border:`1px solid ${C.border}`,borderRadius:8,fontSize:11,color:C.dim,lineHeight:1.8}}>
-        <span style={{color:C.d2}}>HOW TO USE: </span>{coreMode==="core1"?"Work through all 5 Core 1 domains. Use Flashcards anytime. After all 5 domains, the Practice Test (220-1101) unlocks. Target 80%+ before exam day.":coreMode==="core2"?"Work through all 4 Core 2 domains. Use Flashcards anytime. After all 4 domains, the Practice Test (220-1102) unlocks. Target 80%+ before exam day.":"Work through Core 1 domains (1-5) then Core 2 domains (6-9). Use Flashcards anytime. After all 9 domains, the Full Practice Test unlocks. Target 80%+ before exam day."}
+        <span style={{color:C.d2}}>HOW TO USE: </span>{HOW_TO_USE[coreMode]||HOW_TO_USE.all}
       </div>
     </div></div>
   );
