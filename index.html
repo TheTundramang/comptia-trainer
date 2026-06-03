@@ -3,8 +3,56 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none';">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <title>CompTIA Trainer</title>
+    <script>
+      (function() {
+        var t = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      })();
+    </script>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      :root {
+        --c-bg: #0d0f1e;
+        --c-surface: #161929;
+        --c-border: #272f52;
+        --c-muted: #3a4570;
+        --c-text: #e4eaff;
+        --c-dim: #7080b0;
+        --c-shadow: 0 2px 12px rgba(0,0,0,0.35);
+      }
+
+      :root[data-theme="light"] {
+        --c-bg: #f0f4ff;
+        --c-surface: #ffffff;
+        --c-border: #dde3f8;
+        --c-muted: #c5cde8;
+        --c-text: #1a1d35;
+        --c-dim: #6575a8;
+        --c-shadow: 0 2px 16px rgba(30,40,100,0.08);
+      }
+
+      html, body {
+        font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+        background: var(--c-bg);
+        color: var(--c-text);
+        min-height: 100vh;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      button { font-family: inherit; }
+
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: var(--c-bg); }
+      ::-webkit-scrollbar-thumb { background: var(--c-border); border-radius: 3px; }
+
+      [data-theme="light"] .scan-overlay { display: none; }
+    </style>
   </head>
   <body>
     <div id="root"></div>
