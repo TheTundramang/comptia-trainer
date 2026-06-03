@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
+import { useTheme } from "../useTheme.js";
 
 const C = {
-  bg:"#08090f", surface:"#0d1120", border:"#1a2540", muted:"#2a3a55",
-  text:"#c8d8f0", dim:"#4a6080", d1:"#00b4d8", d2:"#f77f00", d3:"#4cc9f0",
+  bg:"var(--c-bg)", surface:"var(--c-surface)", border:"var(--c-border)", muted:"var(--c-muted)",
+  text:"var(--c-text)", dim:"var(--c-dim)", d1:"#00b4d8", d2:"#f77f00", d3:"#4cc9f0",
   d4:"#e63946", d5:"#06d6a0", gold:"#ffd166", green:"#06d6a0", red:"#e63946",
   orange:"#f77f00", purple:"#9b5de5",
 };
@@ -168,16 +169,16 @@ const DOMAINS=[
 ];
 
 const S={
-  app:{minHeight:"100vh",background:C.bg,fontFamily:"'Courier New',monospace",color:C.text,overflowX:"hidden"},
-  scan:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,180,216,0.012) 2px,rgba(0,180,216,0.012) 4px)",pointerEvents:"none",zIndex:1},
-  wrap:{maxWidth:740,margin:"0 auto",padding:"20px 16px",position:"relative",zIndex:2},
-  divider:{height:1,background:"linear-gradient(90deg,transparent,#00b4d8,transparent)",margin:"20px 0"},
-  card:(border=C.border)=>({border:`1px solid ${border}`,borderRadius:10,padding:"18px 20px",background:C.surface,marginBottom:14}),
-  label:(color=C.dim)=>({fontSize:10,letterSpacing:3,color,textTransform:"uppercase",marginBottom:6}),
-  btn:(color,fill)=>({padding:"9px 20px",borderRadius:6,border:`1px solid ${color}`,background:fill?color:"transparent",color:fill?C.bg:color,cursor:"pointer",fontSize:11,letterSpacing:2,fontFamily:"inherit",fontWeight:"bold",textTransform:"uppercase",transition:"all 0.15s"}),
-  optionBtn:(state,color)=>({display:"block",width:"100%",textAlign:"left",padding:"12px 15px",marginBottom:9,borderRadius:6,border:`1px solid ${state==="correct"?C.green:state==="wrong"?C.red:state==="selected"?color:C.border}`,background:state==="correct"?`rgba(${hexRgb(C.green)},0.1)`:state==="wrong"?`rgba(${hexRgb(C.red)},0.1)`:state==="selected"?`rgba(${hexRgb(color)},0.1)`:"transparent",color:state==="correct"?C.green:state==="wrong"?C.red:state==="selected"?color:C.dim,cursor:"pointer",fontSize:13,lineHeight:1.5,fontFamily:"inherit",transition:"all 0.15s"}),
+  app:{minHeight:"100vh",background:C.bg,fontFamily:"'Poppins',system-ui,sans-serif",color:C.text,overflowX:"hidden"},
+  scan:{display:"none"},
+  wrap:{maxWidth:740,margin:"0 auto",padding:"24px 20px",position:"relative",zIndex:2},
+  divider:{height:2,background:"linear-gradient(90deg,transparent,#e63946,transparent)",margin:"24px 0",borderRadius:2},
+  card:(border=C.border)=>({border:`1px solid ${border}`,borderRadius:16,padding:"20px 24px",background:C.surface,marginBottom:16,boxShadow:"var(--c-shadow)"}),
+  label:(color=C.dim)=>({fontSize:11,letterSpacing:1,color,textTransform:"uppercase",fontWeight:600,marginBottom:8}),
+  btn:(color,fill)=>({padding:"10px 22px",borderRadius:10,border:`1px solid ${color}`,background:fill?color:"transparent",color:fill?"#fff":color,cursor:"pointer",fontSize:13,fontWeight:600,fontFamily:"inherit",transition:"all 0.15s"}),
+  optionBtn:(state,color)=>({display:"block",width:"100%",textAlign:"left",padding:"14px 16px",marginBottom:10,borderRadius:12,border:`1px solid ${state==="correct"?C.green:state==="wrong"?C.red:state==="selected"?color:C.border}`,background:state==="correct"?`rgba(${hexRgb(C.green)},0.1)`:state==="wrong"?`rgba(${hexRgb(C.red)},0.1)`:state==="selected"?`rgba(${hexRgb(color)},0.1)`:"transparent",color:state==="correct"?C.green:state==="wrong"?C.red:state==="selected"?color:C.dim,cursor:"pointer",fontSize:14,lineHeight:1.6,fontFamily:"inherit",fontWeight:500,transition:"all 0.15s"}),
   row:{display:"flex",gap:10,flexWrap:"wrap",marginTop:14},
-  tag:(color)=>({fontSize:10,padding:"3px 9px",border:`1px solid ${color}`,borderRadius:12,color,letterSpacing:1,display:"inline-block"}),
+  tag:(color)=>({fontSize:11,padding:"4px 12px",border:`1px solid ${color}`,borderRadius:20,color,fontWeight:600,display:"inline-block"}),
 };
 
 function ProgressBar({pct,color,height=4}){
@@ -201,7 +202,12 @@ function Celebration(){
   return(<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,pointerEvents:"none",zIndex:50,overflow:"hidden"}}><style>{`@keyframes floatUp{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(-110vh) rotate(720deg);opacity:0}}`}</style>{items.map((p,i)=>(<div key={i} style={{position:"absolute",top:"-10px",left:p.left,width:p.size,height:p.size,borderRadius:"50%",background:p.color,animation:`floatUp ${p.dur} ${p.delay} ease-in forwards`}}/>))}</div>);
 }
 
+function ThemeToggle({isDark,toggleTheme}){
+  return <button onClick={toggleTheme} title={isDark?"Light mode":"Dark mode"} style={{position:"fixed",bottom:20,right:20,width:42,height:42,borderRadius:21,border:"1px solid var(--c-border)",background:"var(--c-surface)",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"var(--c-shadow)",zIndex:999,transition:"all 0.2s"}}>{isDark?"☀️":"🌙"}</button>;
+}
+
 export default function App({onExit}){
+  const {isDark,toggleTheme}=useTheme();
   const [save,setSave]=useState(null);
   const [screen,setScreen]=useState("home");
   const [quizState,setQuizState]=useState(null);
@@ -222,23 +228,27 @@ export default function App({onExit}){
     });
   },[]);
   async function updateSave(patch){const next={...save,...patch};setSave(next);await writeSave(next);}
-  if(save===null) return <div style={{...S.app,display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:C.dim,letterSpacing:3,fontSize:12}}>LOADING...</div></div>;
-  const dp=save.domainProgress||{};
-  const practiceUnlocked=DOMAINS.every(d=>dp[d.id]);
-  if(screen==="home") return <HomeScreen save={save} dp={dp} practiceUnlocked={practiceUnlocked} setScreen={setScreen} setQuizState={setQuizState} setFcState={setFcState} onExit={onExit}/>;
-  if(screen==="domainSelect") return <DomainSelectScreen dp={dp} setScreen={setScreen} setQuizState={setQuizState}/>;
-  if(screen==="domainQuiz"&&quizState) return <QuizScreen quizState={quizState} setQuizState={setQuizState} save={save} updateSave={updateSave} setScreen={setScreen} mode="domain"/>;
-  if(screen==="daily") return <DailyScreen dp={dp} setScreen={setScreen} setQuizState={setQuizState}/>;
-  if(screen==="dailyQuiz"&&quizState) return <QuizScreen quizState={quizState} setQuizState={setQuizState} save={save} updateSave={updateSave} setScreen={setScreen} mode="daily"/>;
-  if(screen==="practiceGate") return <PracticeGate practiceUnlocked={practiceUnlocked} dp={dp} setScreen={setScreen} setQuizState={setQuizState}/>;
-  if(screen==="practiceQuiz"&&quizState) return <QuizScreen quizState={quizState} setQuizState={setQuizState} save={save} updateSave={updateSave} setScreen={setScreen} mode="practice"/>;
-  if(screen==="result") return <ResultScreen quizState={quizState} setScreen={setScreen} setQuizState={setQuizState} save={save} updateSave={updateSave}/>;
-  if(screen==="review") return <ReviewScreen quizState={quizState} setScreen={setScreen}/>;
-  if(screen==="flashcards") return <FlashcardHome save={save} updateSave={updateSave} setFcState={setFcState} setScreen={setScreen}/>;
-  if(screen==="fc-flip") return <FlashcardFlip fcState={fcState} setScreen={setScreen} save={save} updateSave={updateSave}/>;
-  if(screen==="fc-drill") return <FlashcardDrill fcState={fcState} setScreen={setScreen} save={save}/>;
-  if(screen==="fc-browse") return <FlashcardBrowse setScreen={setScreen} save={save}/>;
-  return null;
+  const toggle=<ThemeToggle isDark={isDark} toggleTheme={toggleTheme}/>;
+  function content(){
+    if(save===null) return <div style={{...S.app,display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:C.dim,fontSize:15}}>Loading...</div></div>;
+    const dp=save.domainProgress||{};
+    const practiceUnlocked=DOMAINS.every(d=>dp[d.id]);
+    if(screen==="home") return <HomeScreen save={save} dp={dp} practiceUnlocked={practiceUnlocked} setScreen={setScreen} setQuizState={setQuizState} setFcState={setFcState} onExit={onExit}/>;
+    if(screen==="domainSelect") return <DomainSelectScreen dp={dp} setScreen={setScreen} setQuizState={setQuizState}/>;
+    if(screen==="domainQuiz"&&quizState) return <QuizScreen quizState={quizState} setQuizState={setQuizState} save={save} updateSave={updateSave} setScreen={setScreen} mode="domain"/>;
+    if(screen==="daily") return <DailyScreen dp={dp} setScreen={setScreen} setQuizState={setQuizState}/>;
+    if(screen==="dailyQuiz"&&quizState) return <QuizScreen quizState={quizState} setQuizState={setQuizState} save={save} updateSave={updateSave} setScreen={setScreen} mode="daily"/>;
+    if(screen==="practiceGate") return <PracticeGate practiceUnlocked={practiceUnlocked} dp={dp} setScreen={setScreen} setQuizState={setQuizState}/>;
+    if(screen==="practiceQuiz"&&quizState) return <QuizScreen quizState={quizState} setQuizState={setQuizState} save={save} updateSave={updateSave} setScreen={setScreen} mode="practice"/>;
+    if(screen==="result") return <ResultScreen quizState={quizState} setScreen={setScreen} setQuizState={setQuizState} save={save} updateSave={updateSave}/>;
+    if(screen==="review") return <ReviewScreen quizState={quizState} setScreen={setScreen}/>;
+    if(screen==="flashcards") return <FlashcardHome save={save} updateSave={updateSave} setFcState={setFcState} setScreen={setScreen}/>;
+    if(screen==="fc-flip") return <FlashcardFlip fcState={fcState} setScreen={setScreen} save={save} updateSave={updateSave}/>;
+    if(screen==="fc-drill") return <FlashcardDrill fcState={fcState} setScreen={setScreen} save={save}/>;
+    if(screen==="fc-browse") return <FlashcardBrowse setScreen={setScreen} save={save}/>;
+    return null;
+  }
+  return <>{toggle}{content()}</>;
 }
 
 function HomeScreen({save,dp,practiceUnlocked,setScreen,setQuizState,setFcState,onExit}){
@@ -719,7 +729,7 @@ function QuizScreen({quizState,setQuizState,save,updateSave,setScreen,mode}){
         <span style={{...S.tag(color),marginRight:8}}>{qDomainName}</span>
         <span style={S.tag(C.muted)}>{q.topic}</span>
       </div>
-      <div style={{fontSize:15,lineHeight:1.7,color:C.text,marginBottom:20,padding:"16px",background:C.surface,borderRadius:8,border:`1px solid ${C.border}`}}>{q.q}</div>
+      <div style={{fontSize:17,lineHeight:1.75,color:C.text,marginBottom:20,padding:"18px",background:C.surface,borderRadius:14,border:`1px solid ${C.border}`,fontWeight:500}}>{q.q}</div>
       {q.options.map((opt,i)=>(<button key={i} onClick={()=>{if(!confirmed)setSelected(i);}} style={S.optionBtn(getState(i),color)}><span style={{marginRight:10,opacity:0.5}}>{String.fromCharCode(65+i)}.</span>{opt}</button>))}
       <div style={{fontSize:10,color:C.muted,letterSpacing:1,textAlign:"center",margin:"6px 0"}}>A B C D &nbsp;select &nbsp;·&nbsp; 1 know it &nbsp;2 guess &nbsp;·&nbsp; Enter confirm</div>
       {!confirmed&&selected!==null&&(
