@@ -891,6 +891,7 @@ function QuizScreen({quizState,setQuizState,save,updateSave,setScreen,mode}){
 }
 
 function ResultScreen({quizState,setScreen,setQuizState,save,updateSave}){
+  const [expandedTopic,setExpandedTopic]=useState(null);
   const {questions,answers,finalPct,mode,domain,startTime,finishedAt}=quizState;
   const total=questions.length;
   const correct=answers.filter(a=>a.selected===a.correct).length;
@@ -910,6 +911,8 @@ function ResultScreen({quizState,setScreen,setQuizState,save,updateSave}){
   const topicMap={};
   answers.forEach((a,i)=>{const q=questions[i];if(!q)return;if(!topicMap[q.topic])topicMap[q.topic]={correct:0,total:0,domain:q.domainName};topicMap[q.topic].total++;if(a.selected===a.correct)topicMap[q.topic].correct++;});
   const weakTopics=Object.entries(topicMap).map(([t,d])=>({topic:t,pct:Math.round((d.correct/d.total)*100),domain:d.domain,total:d.total})).filter(t=>t.pct<80).sort((a,b)=>a.pct-b.pct).slice(0,5);
+  const wrongByTopic={};
+  answers.forEach((a,i)=>{if(a.selected===a.correct)return;const q=questions[i];if(!q)return;if(!wrongByTopic[q.topic])wrongByTopic[q.topic]=[];wrongByTopic[q.topic].push({q,a});});
   const tips={"Display Types":"Know IPS (wide angle/color accurate), TN (fast/narrow angle), OLED (true blacks/self-emissive). Screen = digitizer + display — test each separately.","Mobile Connectors":"USB-C = reversible + data + power + video. Lightning = Apple only. Micro-USB = old Android. USB-C Alt Mode = DisplayPort/HDMI over USB-C.","Laptop Hardware":"SO-DIMM = laptop RAM (smaller). DDR4/DDR5 not interchangeable. Check max RAM capacity in laptop specs before ordering.","Mobile Synchronization":"Cloud sync = wireless automatic. USB = wired manual. MDM = manages corporate mobile devices remotely including remote wipe.","Mobile OS":"Remote wipe requires MDM enrollment. Android and iOS both support MDM. Know the difference between personal and corporate device policies.","IP Addressing":"169.254.x.x = APIPA = no DHCP server. 127.0.0.1 = loopback. Private ranges: 10.x, 172.16-31.x, 192.168.x.","Ports & Protocols":"Must-know: FTP=21, SSH=22, Telnet=23, SMTP=25, DNS=53, DHCP=67/68, HTTP=80, HTTPS=443, SMB=445, RDP=3389.","Wireless":"Non-overlapping 2.4GHz channels: 1, 6, 11 only. 802.11n = first dual-band. 802.11ax = Wi-Fi 6 = latest.","Memory":"DDR5 = 1.1V, on-die ECC, dual sub-channels. NOT compatible with DDR4 slots. SO-DIMM = laptop RAM.","Storage":"SATA = 550MB/s max. NVMe PCIe Gen4 = 7000MB/s. M.2 slot type (SATA vs PCIe) must match drive protocol.","Motherboards":"Mini-ITX = smallest with x16 PCIe slot. ATX = standard. Check socket compatibility before CPU purchase.","RAID":"RAID 0 = fast, no redundancy. RAID 1 = mirror. RAID 5 = parity, 3+ drives. RAID 10 = mirror+stripe, 4 drives.","Hypervisors":"Type 1 = bare metal (ESXi, Hyper-V). Type 2 = hosted (Workstation, VirtualBox). Enterprise uses Type 1.","Cloud Models":"IaaS = you manage OS up. PaaS = you manage app + data. SaaS = you manage nothing. Shared responsibility changes per model.","Virtualization":"Snapshots = point-in-time rollback. Templates = rapid consistent deployment. Containers = share host kernel.","Windows Editions":"Home = no domain join. Pro = domain join + BitLocker + Group Policy. Enterprise = advanced management.","Windows Tools":"chkdsk = disk/filesystem. sfc = system files. DISM = component store. Order: DISM first if sfc fails.","Registry Hives":"HKLM = all users on machine. HKCU = current user only. regedit = registry editor. Backup before editing.","macOS":"FileVault = disk encryption. Time Machine = backup. Migration Assistant = restore from Time Machine. Terminal = CLI.","Linux Commands":"chmod 755 = rwxr-xr-x. chmod 644 = rw-r--r--. grep -ri = case-insensitive recursive search. sudo = run as root.","Malware":"Trojan = disguised, no self-replication. Worm = self-propagates. Ransomware = encrypts + extorts. Rootkit = hides.","Social Engineering":"Phishing = mass email. Spear = targeted email. Vishing = voice. Smishing = SMS. Tailgating = physical piggybacking.","Physical Security":"Mantrap = prevents tailgating. Cable lock = theft prevention. Smart card = identity + access log. Badge + PIN = MFA.","Data Destruction":"Delete/format = recoverable. DoD wipe = multiple passes = not recoverable for HDDs. Physical destruction = ultimate.","Post":"POST beep codes identify hardware failures before video is available. Cross-reference with motherboard manual for exact meaning.","BSOD":"MEMORY_MANAGEMENT = RAM. INACCESSIBLE_BOOT_DEVICE = storage/driver. SYSTEM_SERVICE_EXCEPTION = driver corruption.","Boot Failures":"Startup Repair = automated WinRE tool for boot issues. bootrec /fixmbr + /rebuildbcd = manual repair for MBR/BCD.","Malware Removal":"Step 1 = Quarantine (isolate from network). Then: disable System Restore, Safe Mode scan, re-enable, educate user.","Change Management":"Rollback plan required before any change. CAB reviews and approves changes. Document before AND after.","Backups":"Full+incremental = need full + ALL incrementals. Full+differential = need full + LATEST differential only.","Safety":"ESD wrist strap = most important ESD protection. CRT capacitors = lethal voltage even when unplugged. Lift with legs.","Compliance":"HIPAA = health data. PCI-DSS = payment cards. GDPR = EU personal data. Verify which applies before disposing media."};
   const timeTaken=startTime&&finishedAt?Math.round((finishedAt-startTime)/1000):null;
   return(
@@ -940,11 +943,36 @@ function ResultScreen({quizState,setScreen,setQuizState,save,updateSave}){
       </div>)}
       {weakTopics.length>0&&(<div style={{...S.card(),marginBottom:16}}>
         <div style={S.label(C.red)}>Weak Spots Detected</div>
-        {weakTopics.map(t=>(<div key={t.topic} style={{marginBottom:14}}>
-          <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><div><span style={{fontSize:12,color:C.text}}>{t.topic}</span><span style={{fontSize:10,color:C.dim,marginLeft:8}}>{t.domain}</span></div><span style={{fontSize:12,color:scoreColor(t.pct),fontWeight:"bold"}}>{t.pct}%</span></div>
-          <ProgressBar pct={t.pct} color={scoreColor(t.pct)}/>
-          {tips[t.topic]&&<div style={{fontSize:11,color:C.dim,lineHeight:1.7,marginTop:6,paddingLeft:8,borderLeft:`2px solid ${C.muted}`}}>{tips[t.topic]}</div>}
-        </div>))}
+        {weakTopics.map(t=>{
+          const missed=wrongByTopic[t.topic]||[];
+          const open=expandedTopic===t.topic;
+          return(
+          <div key={t.topic} style={{marginBottom:16}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><div><span style={{fontSize:13,color:C.text,fontWeight:600}}>{t.topic}</span><span style={{fontSize:11,color:C.dim,marginLeft:8}}>{t.domain}</span></div><span style={{fontSize:13,color:scoreColor(t.pct),fontWeight:"bold"}}>{t.pct}%</span></div>
+            <ProgressBar pct={t.pct} color={scoreColor(t.pct)}/>
+            {tips[t.topic]&&<div style={{fontSize:12,color:C.dim,lineHeight:1.7,marginTop:8,paddingLeft:10,borderLeft:`2px solid ${C.muted}`}}>{tips[t.topic]}</div>}
+            {missed.length>0&&(
+              <div style={{marginTop:10}}>
+                <button onClick={()=>setExpandedTopic(open?null:t.topic)} style={{background:"transparent",border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:12,color:C.dim,fontFamily:"inherit",fontWeight:600,display:"flex",alignItems:"center",gap:6}}>
+                  {open?"▲ Hide":"▼ Show"} {missed.length} missed question{missed.length!==1?"s":""}
+                </button>
+                {open&&<div style={{marginTop:10}}>
+                  {missed.map(({q:mq,a:ma},mi)=>(
+                    <div key={mi} style={{padding:"12px 14px",background:"var(--c-bg)",border:`1px solid ${C.border}`,borderRadius:12,marginBottom:8}}>
+                      <div style={{fontSize:13,color:C.text,lineHeight:1.7,marginBottom:10,fontWeight:500}}>{mq.q}</div>
+                      {mq.options.map((opt,oi)=>(
+                        <div key={oi} style={{fontSize:12,padding:"6px 10px",marginBottom:4,borderRadius:8,background:oi===mq.answer?`rgba(${hexRgb(C.green)},0.1)`:oi===ma.selected?`rgba(${hexRgb(C.red)},0.1)`:"transparent",border:`1px solid ${oi===mq.answer?C.green:oi===ma.selected?C.red:C.border}`,color:oi===mq.answer?C.green:oi===ma.selected?C.red:C.dim}}>
+                          {oi===mq.answer?"✓ ":oi===ma.selected?"✗ ":"  "}{opt}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>}
+              </div>
+            )}
+          </div>
+          );
+        })}
       </div>)}
       {mode==="practice"&&(<div style={{...S.card(passed?C.green:C.orange),marginBottom:16}}>
         <div style={S.label(passed?C.green:C.orange)}>Exam Readiness Verdict</div>

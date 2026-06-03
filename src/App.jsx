@@ -846,6 +846,7 @@ function QuizScreen({quizState,setQuizState,save,updateSave,setScreen,mode}){
 }
 
 function ResultScreen({quizState,setScreen,setQuizState,save,updateSave}){
+  const [expandedTopic,setExpandedTopic]=useState(null);
   const {questions,answers,finalPct,mode,domain,startTime,finishedAt}=quizState;
   const total=questions.length;
   const correct=answers.filter(a=>a.selected===a.correct).length;
@@ -865,6 +866,8 @@ function ResultScreen({quizState,setScreen,setQuizState,save,updateSave}){
   const topicMap={};
   answers.forEach((a,i)=>{const q=questions[i];if(!q)return;if(!topicMap[q.topic])topicMap[q.topic]={correct:0,total:0,domain:q.domainName};topicMap[q.topic].total++;if(a.selected===a.correct)topicMap[q.topic].correct++;});
   const weakTopics=Object.entries(topicMap).map(([t,d])=>({topic:t,pct:Math.round((d.correct/d.total)*100),domain:d.domain,total:d.total})).filter(t=>t.pct<80).sort((a,b)=>a.pct-b.pct).slice(0,5);
+  const wrongByTopic={};
+  answers.forEach((a,i)=>{if(a.selected===a.correct)return;const q=questions[i];if(!q)return;if(!wrongByTopic[q.topic])wrongByTopic[q.topic]=[];wrongByTopic[q.topic].push({q,a});});
   const tips={"OSI Model":"Re-watch Professor Messer's OSI model section. Use Please Do Not Throw Sausage Pizza Away bottom-up to memorize layer order.","IP Addressing":"Practice subnetting. Aim to subnet a /24 in under 30 seconds. The flashcard deck covers all private ranges and APIPA.","Protocols & Ports":"Make flashcards for the 20 most critical ports. The Ports and Protocols deck in this app covers all of them.","Switching":"Review MAC address table operation and STP port states: blocking, listening, learning, forwarding.","VLANs":"Draw a diagram with two VLANs and trace how a frame moves through a trunk port with 802.1Q tags.","Routing":"Know RIP (hop count), OSPF (cost), EIGRP (composite metric). BGP is for internet routing between ISPs.","Wireless":"Memorize the 802.11 table: a=5GHz/54M, b=2.4/11M, g=2.4/54M, n=dual/600M, ac=5GHz/3.5G. Use the Wireless deck.","Cables":"Know the 100m copper limit and the SMF vs MMF difference. Practice identifying connectors visually.","Attacks":"Study DoS, DDoS, MitM, ARP spoofing, DNS poisoning, phishing, brute force, replay, VLAN hopping.","AAA":"RADIUS = UDP, combines auth+authz in one packet. TACACS+ = TCP, separates all three AAA functions.","Firewalls":"Know all four types by OSI layer. NGFW = Layer 7 deep packet inspection. Stateful = tracks connection state.","IDS/IPS":"IDS = out-of-band, detect and alert only. IPS = inline, detect and block. Both can be signature or anomaly-based.","Wireless Security":"WEP broken, WPA/TKIP deprecated, WPA2/AES current, WPA3/SAE latest. Enterprise uses 802.1X with RADIUS.","Methodology":"All 7 steps: Identify, Theory, Test, Plan, Implement, Verify, Document, Prevent. Never skip step 1.","Tools":"ping (ICMP), tracert (path hops), nslookup (DNS), ipconfig (IP/DHCP), Wireshark (packet capture).","Cable Issues":"Attenuation = signal loss. Crosstalk = pair bleed. EMI = external interference. OTDR tests fiber.","Monitoring":"SNMP: 161=polling, 162=traps. SNMPv3=encrypted. Syslog=514. NTP=123. All exam favorites.","Availability":"RTO = max downtime budget. RPO = max data loss budget. MTTR = average repair time. MTBF = average uptime between failures.","QoS":"DSCP marks packets at Layer 3. Voice needs less than 150ms latency and less than 30ms jitter.","Documentation":"Network diagrams, change management, IPAM, cable labels, and runbooks are all exam topics.","Troubleshooting":"Practice the 7-step methodology on real tickets. Scenario questions test which step comes next.","Encryption":"TLS 1.2 and 1.3 are current. SSL and TLS 1.0/1.1 are deprecated. AES = symmetric. RSA = asymmetric key exchange.","NAT":"PAT (Port Address Translation) = many-to-one NAT using port numbers. What your home router does.","Cloud Concepts":"IaaS = rent hardware. PaaS = rent platform. SaaS = rent software. Know public, private, hybrid, community models.","PoE":"802.3af = 15.4W. 802.3at = 30W. 802.3bt = 60-100W. Higher-power APs and cameras need at or bt.","Least Privilege":"Related: need-to-know, separation of duties, job rotation, mandatory vacations. All reduce insider risk.","Network Zones":"DMZ between two firewalls. Internal = private LAN. Extranet = internal plus trusted partners."};
   const timeTaken=startTime&&finishedAt?Math.round((finishedAt-startTime)/1000):null;
   return(
@@ -914,16 +917,42 @@ function ResultScreen({quizState,setScreen,setQuizState,save,updateSave}){
       {weakTopics.length>0&&(
         <div style={{...S.card(),marginBottom:16}}>
           <div style={S.label(C.red)}>Weak Spots Detected</div>
-          {weakTopics.map(t=>(
-            <div key={t.topic} style={{marginBottom:14}}>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                <div><span style={{fontSize:12,color:C.text}}>{t.topic}</span><span style={{fontSize:10,color:C.dim,marginLeft:8}}>{t.domain}</span></div>
-                <span style={{fontSize:12,color:scoreColor(t.pct),fontWeight:"bold"}}>{t.pct}%</span>
+          {weakTopics.map(t=>{
+            const missed=wrongByTopic[t.topic]||[];
+            const open=expandedTopic===t.topic;
+            return(
+            <div key={t.topic} style={{marginBottom:16}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                <div><span style={{fontSize:13,color:C.text,fontWeight:600}}>{t.topic}</span><span style={{fontSize:11,color:C.dim,marginLeft:8}}>{t.domain}</span></div>
+                <span style={{fontSize:13,color:scoreColor(t.pct),fontWeight:"bold"}}>{t.pct}%</span>
               </div>
               <ProgressBar pct={t.pct} color={scoreColor(t.pct)}/>
-              {tips[t.topic]&&<div style={{fontSize:11,color:C.dim,lineHeight:1.7,marginTop:6,paddingLeft:8,borderLeft:`2px solid ${C.muted}`}}>{tips[t.topic]}</div>}
+              {tips[t.topic]&&<div style={{fontSize:12,color:C.dim,lineHeight:1.7,marginTop:8,paddingLeft:10,borderLeft:`2px solid ${C.muted}`}}>{tips[t.topic]}</div>}
+              {missed.length>0&&(
+                <div style={{marginTop:10}}>
+                  <button onClick={()=>setExpandedTopic(open?null:t.topic)} style={{background:"transparent",border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:12,color:C.dim,fontFamily:"inherit",fontWeight:600,display:"flex",alignItems:"center",gap:6}}>
+                    {open?"▲ Hide":"▼ Show"} {missed.length} missed question{missed.length!==1?"s":""}
+                  </button>
+                  {open&&<div style={{marginTop:10}}>
+                    {missed.map(({q:mq,a:ma},mi)=>(
+                      <div key={mi} style={{padding:"12px 14px",background:"var(--c-bg)",border:`1px solid ${C.border}`,borderRadius:12,marginBottom:8}}>
+                        <div style={{fontSize:13,color:C.text,lineHeight:1.7,marginBottom:10,fontWeight:500}}>{mq.q}</div>
+                        {mq.options.map((opt,oi)=>(
+                          <div key={oi} style={{fontSize:12,padding:"6px 10px",marginBottom:4,borderRadius:8,
+                            background:oi===mq.answer?`rgba(${hexRgb(C.green)},0.1)`:oi===ma.selected?`rgba(${hexRgb(C.red)},0.1)`:"transparent",
+                            border:`1px solid ${oi===mq.answer?C.green:oi===ma.selected?C.red:C.border}`,
+                            color:oi===mq.answer?C.green:oi===ma.selected?C.red:C.dim}}>
+                            {oi===mq.answer?"✓ ":oi===ma.selected?"✗ ":"  "}{opt}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>}
+                </div>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
       {mode==="practice"&&(

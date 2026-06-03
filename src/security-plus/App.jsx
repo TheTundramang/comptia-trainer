@@ -814,6 +814,7 @@ function QuizScreen({quizState,setQuizState,save,updateSave,setScreen,mode}){
 }
 
 function ResultScreen({quizState,setScreen,setQuizState,save,updateSave}){
+  const [expandedTopic,setExpandedTopic]=useState(null);
   const {questions,answers,finalPct,mode,domain,startTime,finishedAt}=quizState;
   const total=questions.length;
   const correct=answers.filter(a=>a.selected===a.correct).length;
@@ -833,6 +834,8 @@ function ResultScreen({quizState,setScreen,setQuizState,save,updateSave}){
   const topicMap={};
   answers.forEach((a,i)=>{const q=questions[i];if(!q)return;if(!topicMap[q.topic])topicMap[q.topic]={correct:0,total:0,domain:q.domainName};topicMap[q.topic].total++;if(a.selected===a.correct)topicMap[q.topic].correct++;});
   const weakTopics=Object.entries(topicMap).map(([t,d])=>({topic:t,pct:Math.round((d.correct/d.total)*100),domain:d.domain,total:d.total})).filter(t=>t.pct<80).sort((a,b)=>a.pct-b.pct).slice(0,5);
+  const wrongByTopic={};
+  answers.forEach((a,i)=>{if(a.selected===a.correct)return;const q=questions[i];if(!q)return;if(!wrongByTopic[q.topic])wrongByTopic[q.topic]=[];wrongByTopic[q.topic].push({q,a});});
   const tips={"Security Controls":"Know all four categories (preventive/detective/corrective/compensating) and all four types (technical/managerial/operational/physical). Mix and match on exam questions.","Cryptography":"Symmetric = same key (AES). Asymmetric = key pair (RSA, ECC). Hashing = one-way (SHA-256). Know which algorithm is which type.","Authentication":"MFA requires two DIFFERENT factor types. Two passwords = not MFA. Know TOTP, FIDO2, push notifications, and smart cards.","PKI":"CA issues certs. CRL = revocation list. OCSP = real-time check. Certificate chain = root CA → intermediate CA → end cert.","Zero Trust":"Never trust, always verify. No implicit trust from network location. Verify every request. Microsegmentation + least privilege = zero trust in practice.","Malware":"Virus=host file required. Worm=self-propagates. Trojan=disguised. Ransomware=encrypts+extorts. Rootkit=hides itself. RAT=remote access. Fileless=lives in memory.","Social Engineering":"Phishing=email mass. Spear=targeted. Whaling=executive. Vishing=voice. Smishing=SMS. Baiting=physical media. Pretexting=fabricated scenario.","Application Attacks":"SQLi=parameterized queries fix it. XSS=output encoding+CSP fix it. CSRF=anti-CSRF tokens fix it. Buffer overflow=input validation+DEP/ASLR.","Network Attacks":"SYN flood=protocol layer. UDP flood=volumetric. DDoS=distributed. ARP spoofing=LAN MitM. DNS poisoning=redirects resolution.","Vulnerability Management":"CVSS=severity score. Context matters: exposure + data sensitivity + compensating controls affect actual risk priority.","Network Segmentation":"VLANs=logical separation. DMZ=screened subnet for public servers. Microsegmentation=granular east-west control. Air gap=physical isolation.","Cloud Security":"CASB=proxy between users and cloud. CSPM=cloud infrastructure config management. Shared responsibility=you own OS and above in IaaS.","VPN":"Split tunnel=only corporate traffic through VPN. Full tunnel=all traffic through VPN. Site-to-site=permanent network-to-network. IPsec+IKE=standard.","Defense in Depth":"No single control is perfect. Layer preventive+detective+corrective+compensating. Assume breach; design for resilience not just prevention.","Identity Management":"Provisioning=grant access. Deprovisioning=remove access. JIT=temporary elevated rights. PAM=privileged account vault+monitoring.","Incident Response":"Phases: Preparation→Identification→Containment→Eradication→Recovery→Lessons Learned. Containment FIRST when active incident.","Forensics":"Order of volatility: registers→RAM→processes→network→disk→logs. Chain of custody must be unbroken. Image the drive, work from the copy.","Log Management":"SIEM=aggregate+correlate+alert. SOAR=SIEM+automated response. Logs alone are useless without correlation.","Risk Management":"Accept=acknowledge. Avoid=eliminate. Transfer=insurance/contracts. Mitigate=controls. Residual risk=what remains after controls.","Compliance":"PCI-DSS=payment cards. HIPAA=US health data. GDPR=EU personal data (72hr notification). SOC 2=service orgs over time. ISO 27001=global ISMS.","Data Governance":"Classify first, then apply controls proportional to sensitivity. Public<Internal<Confidential<Restricted. Classification drives encryption, access, and disposal.","Business Continuity":"RTO=max downtime. RPO=max data loss. BCP=keep business running. DRP=restore IT systems. Test both with tabletop exercises.","Third-Party Risk":"DPA required for vendors processing personal data (GDPR Article 28). Right-to-audit clause in contracts. Supply chain attacks target software updates."};
   const timeTaken=startTime&&finishedAt?Math.round((finishedAt-startTime)/1000):null;
   return(
@@ -882,16 +885,42 @@ function ResultScreen({quizState,setScreen,setQuizState,save,updateSave}){
       {weakTopics.length>0&&(
         <div style={{...S.card(),marginBottom:16}}>
           <div style={S.label(C.red)}>Weak Spots Detected</div>
-          {weakTopics.map(t=>(
-            <div key={t.topic} style={{marginBottom:14}}>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                <div><span style={{fontSize:12,color:C.text}}>{t.topic}</span><span style={{fontSize:10,color:C.dim,marginLeft:8}}>{t.domain}</span></div>
-                <span style={{fontSize:12,color:scoreColor(t.pct),fontWeight:"bold"}}>{t.pct}%</span>
+          {weakTopics.map(t=>{
+            const missed=wrongByTopic[t.topic]||[];
+            const open=expandedTopic===t.topic;
+            return(
+            <div key={t.topic} style={{marginBottom:16}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                <div><span style={{fontSize:13,color:C.text,fontWeight:600}}>{t.topic}</span><span style={{fontSize:11,color:C.dim,marginLeft:8}}>{t.domain}</span></div>
+                <span style={{fontSize:13,color:scoreColor(t.pct),fontWeight:"bold"}}>{t.pct}%</span>
               </div>
               <ProgressBar pct={t.pct} color={scoreColor(t.pct)}/>
-              {tips[t.topic]&&<div style={{fontSize:11,color:C.dim,lineHeight:1.7,marginTop:6,paddingLeft:8,borderLeft:`2px solid ${C.muted}`}}>{tips[t.topic]}</div>}
+              {tips[t.topic]&&<div style={{fontSize:12,color:C.dim,lineHeight:1.7,marginTop:8,paddingLeft:10,borderLeft:`2px solid ${C.muted}`}}>{tips[t.topic]}</div>}
+              {missed.length>0&&(
+                <div style={{marginTop:10}}>
+                  <button onClick={()=>setExpandedTopic(open?null:t.topic)} style={{background:"transparent",border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:12,color:C.dim,fontFamily:"inherit",fontWeight:600,display:"flex",alignItems:"center",gap:6}}>
+                    {open?"▲ Hide":"▼ Show"} {missed.length} missed question{missed.length!==1?"s":""}
+                  </button>
+                  {open&&<div style={{marginTop:10}}>
+                    {missed.map(({q:mq,a:ma},mi)=>(
+                      <div key={mi} style={{padding:"12px 14px",background:"var(--c-bg)",border:`1px solid ${C.border}`,borderRadius:12,marginBottom:8}}>
+                        <div style={{fontSize:13,color:C.text,lineHeight:1.7,marginBottom:10,fontWeight:500}}>{mq.q}</div>
+                        {mq.options.map((opt,oi)=>(
+                          <div key={oi} style={{fontSize:12,padding:"6px 10px",marginBottom:4,borderRadius:8,
+                            background:oi===mq.answer?`rgba(${hexRgb(C.green)},0.1)`:oi===ma.selected?`rgba(${hexRgb(C.red)},0.1)`:"transparent",
+                            border:`1px solid ${oi===mq.answer?C.green:oi===ma.selected?C.red:C.border}`,
+                            color:oi===mq.answer?C.green:oi===ma.selected?C.red:C.dim}}>
+                            {oi===mq.answer?"✓ ":oi===ma.selected?"✗ ":"  "}{opt}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>}
+                </div>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
       {mode==="practice"&&(
