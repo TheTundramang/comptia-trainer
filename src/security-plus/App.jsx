@@ -397,14 +397,21 @@ function FlashcardFlip({fcState,setScreen,save,updateSave}){
         {!flipped?<div style={{fontSize:18,fontWeight:"bold",color:C.text,lineHeight:1.5}}>{card.term}</div>:<div style={{fontSize:13,color:C.text,lineHeight:1.8}}>{card.definition}</div>}
         <div style={{position:"absolute",bottom:10,right:14,fontSize:10,color:C.muted}}>{flipped?"tap to flip back":"tap to reveal"}</div>
       </div>
-      {flipped&&<div>
-        {card.acronym&&<div style={{marginBottom:10}}>
-          <button onClick={()=>setShowAcronym(a=>!a)} style={{...S.btn(C.gold,showAcronym),width:"100%",textAlign:"left",padding:"10px 14px"}}>🧠 {showAcronym?"HIDE":"SHOW"} MEMORY TRICK</button>
-          {showAcronym&&<div style={{padding:"12px 14px",background:`rgba(${hexRgb(C.gold)},0.06)`,border:`1px solid ${C.gold}`,borderTop:"none",borderRadius:"0 0 6px 6px",fontSize:12,color:C.text,lineHeight:1.8}}>{card.acronym}</div>}
+      {flipped&&<div style={{marginTop:4}}>
+        {(card.acronym||card.analogy)&&<div style={{fontSize:11,fontWeight:600,color:C.dim,letterSpacing:1,textTransform:"uppercase",marginBottom:12}}>Study Aids</div>}
+        {card.acronym&&<div style={{marginBottom:12}}>
+          <button onClick={()=>setShowAcronym(a=>!a)} style={{width:"100%",textAlign:"left",padding:"14px 18px",borderRadius:showAcronym?"12px 12px 0 0":"12px",border:`2px solid ${C.gold}`,background:showAcronym?C.gold:`rgba(${hexRgb(C.gold)},0.08)`,color:showAcronym?"#1a1a1a":C.gold,cursor:"pointer",fontSize:15,fontWeight:600,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"space-between",transition:"all 0.15s"}}>
+            <span>🧠 Memory Trick</span>
+            <span style={{fontSize:12,opacity:0.7}}>{showAcronym?"▲ Hide":"▼ Show"}</span>
+          </button>
+          {showAcronym&&<div style={{padding:"16px 18px",background:`rgba(${hexRgb(C.gold)},0.07)`,border:`2px solid ${C.gold}`,borderTop:"none",borderRadius:"0 0 12px 12px",fontSize:14,color:C.text,lineHeight:1.85,fontWeight:500}}>{card.acronym}</div>}
         </div>}
-        {card.analogy&&<div style={{marginBottom:10}}>
-          <button onClick={()=>setShowAnalogy(a=>!a)} style={{...S.btn(color,showAnalogy),width:"100%",textAlign:"left",padding:"10px 14px"}}>💡 {showAnalogy?"HIDE":"SHOW"} ANALOGY</button>
-          {showAnalogy&&<div style={{padding:"12px 14px",background:`rgba(${hexRgb(color)},0.06)`,border:`1px solid ${color}`,borderTop:"none",borderRadius:"0 0 6px 6px",fontSize:12,color:C.text,lineHeight:1.8}}>{card.analogy}</div>}
+        {card.analogy&&<div style={{marginBottom:12}}>
+          <button onClick={()=>setShowAnalogy(a=>!a)} style={{width:"100%",textAlign:"left",padding:"14px 18px",borderRadius:showAnalogy?"12px 12px 0 0":"12px",border:`2px solid ${color}`,background:showAnalogy?color:`rgba(${hexRgb(color)},0.08)`,color:showAnalogy?"#fff":color,cursor:"pointer",fontSize:15,fontWeight:600,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"space-between",transition:"all 0.15s"}}>
+            <span>💡 Analogy</span>
+            <span style={{fontSize:12,opacity:0.7}}>{showAnalogy?"▲ Hide":"▼ Show"}</span>
+          </button>
+          {showAnalogy&&<div style={{padding:"16px 18px",background:`rgba(${hexRgb(color)},0.07)`,border:`2px solid ${color}`,borderTop:"none",borderRadius:"0 0 12px 12px",fontSize:14,color:C.text,lineHeight:1.85}}>{card.analogy}</div>}
         </div>}
       </div>}
       <div style={{fontSize:10,color:C.muted,letterSpacing:1,textAlign:"center",margin:"8px 0 4px"}}>Space flip &nbsp;·&nbsp; ← → navigate &nbsp;·&nbsp; ⇄ shuffle</div>
