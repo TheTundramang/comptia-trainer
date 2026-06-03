@@ -19,11 +19,29 @@ Implications:
 
 ## 2. Data Storage
 
-Study progress is persisted exclusively in the browser's `localStorage` under cert-specific keys (`netplus-v2`, `aplus-v1`, `secplus-v1`). The stored data consists only of:
+The browser's `localStorage` is used for two purposes:
 
-- Quiz scores and streak counters
-- Starred / bookmarked flashcard IDs
+**UI preference (non-sensitive):**
+
+| Key | Value | Purpose |
+|-----|-------|---------|
+| `theme` | `"dark"` or `"light"` | User's selected color theme |
+
+**Study progress (per cert):**
+
+| Key | Contents |
+|-----|----------|
+| `netplus-v2` | Network+ progress |
+| `aplus-v1` | A+ progress |
+| `secplus-v1` | Security+ progress |
+
+Each study progress object contains:
+
+- Quiz scores (`bestScore`, `lastPct`, `prevScore`) and streak counters
+- Weak question tracking (`weakQuestions` map with miss/correct counts)
+- Starred / bookmarked flashcard term IDs
 - Session timestamps for streak tracking
+- Practice test history (score percentages and dates only)
 
 **This data never leaves the browser.** It is not transmitted to any server. It contains no credentials, no personal details, and nothing sensitive. A user can clear it at any time via their browser's site-data settings.
 
@@ -97,7 +115,7 @@ When adding a new cert module (a new `App.jsx` inside its own `src/<cert-name>/`
 - [ ] No `fetch()`, `XMLHttpRequest`, `import()` (dynamic), or WebSocket calls — all content must be static constants.
 - [ ] No hardcoded API keys, tokens, passwords, or license keys.
 - [ ] No `innerHTML` or `dangerouslySetInnerHTML` used with any non-literal string.
-- [ ] `localStorage` key is unique (e.g., `yourcert-v1`) to prevent data collisions between certs. Existing keys: `netplus-v2`, `aplus-v1`, `secplus-v1`.
+- [ ] `localStorage` key is unique (e.g., `yourcert-v1`) to prevent data collisions between certs. Existing keys: `netplus-v2`, `aplus-v1`, `secplus-v1`, `theme`.
 - [ ] New cert is registered in `src/Landing.jsx` under the `CERTS` array with a correct `id` and matching `status`.
 - [ ] `npm audit` passes with no high or critical findings after adding any new dev dependency.
 
@@ -119,4 +137,4 @@ You can expect an acknowledgement within a few days. Because this is a client-si
 
 ---
 
-*Last reviewed: 2026-06-01*
+*Last reviewed: 2026-06-02 — Priya (Security Architect)*
