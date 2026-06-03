@@ -365,11 +365,13 @@ function HomeScreen({save,dp,practiceUnlocked,setScreen,setQuizState,setFcState,
     <div style={S.app}><div style={S.scan}/>
     <div style={S.wrap}>
       <div style={{textAlign:"center",marginBottom:28,position:"relative"}}>
-        {onExit&&<button onClick={onExit} style={{position:"absolute",top:0,left:0,...S.btn(C.dim),padding:"4px 12px",fontSize:10}}>← ALL CERTS</button>}
-        <button onClick={()=>setCoreMode(null)} style={{position:"absolute",top:0,right:0,...S.btn(C.d2),padding:"4px 12px",fontSize:10}}>SWITCH EXAM</button>
-        <div style={{fontSize:10,color:C.dim,letterSpacing:5,marginBottom:8}}>COMPTIA {codeLabel}</div>
-        <div style={{fontSize:26,fontWeight:"bold",letterSpacing:4,color:C.d2,textShadow:`0 0 24px rgba(${hexRgb(C.d2)},0.5)`,marginBottom:4}}>COMPTIA TRAINER</div>
-        <div style={{fontSize:10,color:C.dim,letterSpacing:3}}>{modeLabel}</div>
+        {onExit&&<button onClick={onExit} style={{position:"absolute",top:0,left:0,...S.btn(C.dim),padding:"7px 16px",fontSize:13}}>← All Certs</button>}
+        <div style={{fontSize:11,color:C.dim,letterSpacing:2,marginBottom:6}}>COMPTIA {codeLabel}</div>
+        <div style={{fontSize:26,fontWeight:700,color:C.d2,textShadow:`0 0 24px rgba(${hexRgb(C.d2)},0.4)`,marginBottom:6}}>CompTIA Trainer</div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+          <div style={{fontSize:13,color:C.dim}}>{modeLabel}</div>
+          <button onClick={()=>setCoreMode(null)} style={{fontSize:12,color:C.d2,background:"transparent",border:"none",cursor:"pointer",padding:"2px 8px",borderRadius:20,textDecoration:"underline",fontFamily:"inherit",fontWeight:600}}>Switch</button>
+        </div>
       </div>
       <div style={S.divider}/>
       {save.streak>0&&<div style={{textAlign:"center",marginBottom:18}}>
@@ -398,7 +400,7 @@ function HomeScreen({save,dp,practiceUnlocked,setScreen,setQuizState,setFcState,
           const prog=dp[d.id];const pct=prog?.bestScore||0;
           return <div key={d.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${C.border}`}}>
             <div style={{fontSize:16,width:24}}>{d.icon}</div>
-            <div style={{flex:1}}><div style={{fontSize:12,color:d.color,marginBottom:3}}>{d.name}</div><ProgressBar pct={pct} color={d.color} height={3}/></div>
+            <div style={{flex:1}}><div style={{fontSize:13,color:d.color,marginBottom:4,fontWeight:500}}>{d.name}</div><ProgressBar pct={pct} color={d.color} height={5}/></div>
             <div style={{fontSize:13,fontWeight:"bold",color:prog?scoreColor(pct):C.muted,minWidth:40,textAlign:"right"}}>{prog?`${pct}%`:"—"}</div>
           </div>;
         })}
