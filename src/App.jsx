@@ -784,11 +784,13 @@ function QuizScreen({quizState,setQuizState,save,updateSave,setScreen,mode}){
             <div style={S.label(color)}>Explanation</div>
             <div style={{fontSize:10,color:selected===q.answer?C.green:C.red,letterSpacing:2}}>{selected===q.answer?"CORRECT":"INCORRECT"}</div>
           </div>
-          <div style={{fontSize:12,color:C.dim,lineHeight:1.8,marginBottom:10}}>{q.explanation}</div>
-          <div style={{fontSize:11,color:C.muted,letterSpacing:1,marginBottom:4}}>ANALOGY</div>
-          <div style={{fontSize:12,color:C.text,lineHeight:1.8,paddingLeft:10,borderLeft:`2px solid ${color}`,marginBottom:10}}>{q.analogy}</div>
-          <div style={{fontSize:11,color:C.muted,letterSpacing:1,marginBottom:4}}>IN YOUR WORK</div>
-          <div style={{fontSize:12,color:C.dim,lineHeight:1.8}}>{q.realWorld}</div>
+          <div style={{fontSize:13,color:C.dim,lineHeight:1.85,marginBottom:16}}>{q.explanation}</div>
+          <div style={{height:1,background:C.border,marginBottom:16}}/>
+          <div style={{fontSize:11,color:color,letterSpacing:1,fontWeight:600,marginBottom:8}}>ANALOGY</div>
+          <div style={{fontSize:13,color:C.text,lineHeight:1.85,paddingLeft:14,borderLeft:`3px solid ${color}`,marginBottom:16}}>{q.analogy}</div>
+          <div style={{height:1,background:C.border,marginBottom:16}}/>
+          <div style={{fontSize:11,color:C.green,letterSpacing:1,fontWeight:600,marginBottom:8}}>IN YOUR WORK</div>
+          <div style={{fontSize:13,color:C.text,lineHeight:1.85,paddingLeft:14,borderLeft:`3px solid ${C.green}`}}>{q.realWorld}</div>
         </div>
       )}
       <div style={S.row}>
@@ -950,11 +952,13 @@ function ReviewScreen({quizState,setScreen}){
         {a?.confidence&&<div style={{fontSize:11,color:C.muted,marginBottom:10}}>You answered: <span style={{color:a.confidence==="sure"?(isCorrect?C.green:C.red):C.orange}}>{a.confidence==="sure"?"I Know This":"Educated Guess"}</span>{a.confidence==="sure"&&!isCorrect&&<span style={{color:C.red}}> — overconfidence flag</span>}</div>}
         <div style={{padding:"12px 14px",background:`rgba(${hexRgb(color)},0.05)`,border:`1px solid ${color}`,borderRadius:8,marginBottom:10}}>
           <div style={S.label(color)}>Explanation</div>
-          <div style={{fontSize:12,color:C.dim,lineHeight:1.8,marginBottom:10}}>{q.explanation}</div>
-          <div style={{fontSize:11,color:C.muted,letterSpacing:1,marginBottom:4}}>ANALOGY</div>
-          <div style={{fontSize:12,color:C.text,lineHeight:1.8,paddingLeft:10,borderLeft:`2px solid ${color}`,marginBottom:10}}>{q.analogy}</div>
-          <div style={{fontSize:11,color:C.muted,letterSpacing:1,marginBottom:4}}>IN YOUR WORK</div>
-          <div style={{fontSize:12,color:C.dim,lineHeight:1.8}}>{q.realWorld}</div>
+          <div style={{fontSize:13,color:C.dim,lineHeight:1.85,marginBottom:16}}>{q.explanation}</div>
+          <div style={{height:1,background:C.border,marginBottom:16}}/>
+          <div style={{fontSize:11,color:color,letterSpacing:1,fontWeight:600,marginBottom:8}}>ANALOGY</div>
+          <div style={{fontSize:13,color:C.text,lineHeight:1.85,paddingLeft:14,borderLeft:`3px solid ${color}`,marginBottom:16}}>{q.analogy}</div>
+          <div style={{height:1,background:C.border,marginBottom:16}}/>
+          <div style={{fontSize:11,color:C.green,letterSpacing:1,fontWeight:600,marginBottom:8}}>IN YOUR WORK</div>
+          <div style={{fontSize:13,color:C.text,lineHeight:1.85,paddingLeft:14,borderLeft:`3px solid ${C.green}`}}>{q.realWorld}</div>
         </div>
       </div>
       <div style={S.row}>
