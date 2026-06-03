@@ -26,13 +26,13 @@ const hasSec   = await page.locator('text=CompTIA Security+').count();
   ? pass('Landing: all 3 cert cards visible (A+, Network+, Security+)')
   : fail(`Landing: missing cert cards — A+:${hasAplus} Net+:${hasNet} Sec+:${hasSec}`);
 
-// 2 — A+ launches with correct header
+// 2 — A+ launches to exam selector (CoreSelectScreen)
 await page.locator('text=CompTIA A+').first().click();
 await page.waitForTimeout(600);
 const aplusBody = await page.textContent('body');
-(aplusBody.includes('220-1101') && aplusBody.includes('CORE 1 + CORE 2') && aplusBody.includes('ALL 9 DOMAINS'))
-  ? pass('A+: header correct (220-1101/1102 · CORE 1 + CORE 2 · ALL 9 DOMAINS)')
-  : fail('A+: header incorrect');
+(aplusBody.includes('SELECT EXAM') && aplusBody.includes('220-1101') && aplusBody.includes('220-1102'))
+  ? pass('A+: exam selector visible (SELECT EXAM · Core 1 · Core 2 options)')
+  : fail('A+: exam selector not shown');
 
 // 3 — ALL CERTS returns from A+
 await page.locator('text=← ALL CERTS').click();
@@ -71,9 +71,11 @@ await page.waitForTimeout(400);
   ? pass('Security+: ← ALL CERTS returns to landing')
   : fail('Security+: ← ALL CERTS did not return to landing');
 
-// 8 — A+ domain study flow
+// 8 — A+ domain study flow (select Full A+ from CoreSelectScreen first)
 await page.locator('text=CompTIA A+').first().click();
 await page.waitForTimeout(600);
+await page.locator('text=Full A+').first().click();
+await page.waitForTimeout(400);
 await page.locator('text=Domain Study').click();
 await page.waitForTimeout(400);
 (await page.locator('text=Mobile Devices').count()) > 0
