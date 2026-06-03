@@ -765,6 +765,8 @@ function QuizScreen({quizState,setQuizState,save,updateSave,setScreen,mode}){
   const [selected,setSelected]=useState(null);
   const [confirmed,setConfirmed]=useState(false);
   const [conf,setConf]=useState(null);
+  const [showRef,setShowRef]=useState(false);
+  const [refQuery,setRefQuery]=useState("");
   const handleNextRef=useRef();
   const q=questions[qIdx];
   const color=q.domainColor||C.d2;
@@ -806,10 +808,45 @@ function QuizScreen({quizState,setQuizState,save,updateSave,setScreen,mode}){
   return(
     <div style={S.app}><div style={S.scan}/>
     <div style={S.wrap}>
+      {showRef&&(
+        <div onClick={()=>setShowRef(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--c-surface)",border:"1px solid var(--c-border)",borderRadius:20,padding:24,width:"100%",maxWidth:460,maxHeight:"75vh",display:"flex",flexDirection:"column",boxShadow:"0 8px 40px rgba(0,0,0,0.4)"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+              <div style={{fontSize:16,fontWeight:700,color:"var(--c-text)"}}>📖 Quick Reference</div>
+              <button onClick={()=>setShowRef(false)} style={{background:"transparent",border:"none",cursor:"pointer",fontSize:20,color:"var(--c-dim)",lineHeight:1}}>×</button>
+            </div>
+            <input
+              autoFocus
+              placeholder="Search acronyms and terms..."
+              value={refQuery}
+              onChange={e=>setRefQuery(e.target.value)}
+              style={{width:"100%",padding:"10px 14px",background:"var(--c-bg)",border:"1px solid var(--c-border)",borderRadius:10,color:"var(--c-text)",fontSize:14,fontFamily:"inherit",marginBottom:14,outline:"none"}}
+            />
+            <div style={{overflowY:"auto",flex:1}}>
+              {(()=>{
+                const q=refQuery.trim().toLowerCase();
+                if(!q) return <div style={{fontSize:13,color:"var(--c-dim)",textAlign:"center",padding:20}}>Type an acronym or keyword to look it up.</div>;
+                const hits=FLASHCARD_DOMAINS.flatMap(fd=>fd.cards.map(c=>({...c,deckName:fd.name,deckColor:fd.color}))).filter(c=>c.term.toLowerCase().includes(q)||c.definition.toLowerCase().includes(q)||(c.acronym||"").toLowerCase().includes(q)).slice(0,6);
+                if(!hits.length) return <div style={{fontSize:13,color:"var(--c-dim)",textAlign:"center",padding:20}}>No results for "{refQuery}"</div>;
+                return hits.map((c,i)=>(
+                  <div key={i} style={{padding:"12px 14px",border:"1px solid var(--c-border)",borderRadius:12,marginBottom:10,background:"var(--c-bg)"}}>
+                    <div style={{fontSize:14,fontWeight:700,color:c.deckColor,marginBottom:4}}>{c.term}</div>
+                    <div style={{fontSize:12,color:"var(--c-dim)",marginBottom:c.acronym?6:0,lineHeight:1.6}}>{c.definition}</div>
+                    {c.acronym&&<div style={{fontSize:11,color:"#ffd166",lineHeight:1.6,paddingLeft:8,borderLeft:"2px solid #ffd166"}}>{c.acronym}</div>}
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-        <button onClick={()=>setScreen("home")} style={{...S.btn(C.dim),padding:"4px 12px",fontSize:10}}>✕ EXIT</button>
-        <div style={{fontSize:10,color:C.dim,letterSpacing:2}}>{mode==="domain"?qDomainName.toUpperCase():mode==="practice"?"PRACTICE TEST":"DAILY PRACTICE"}</div>
-        <div style={{fontSize:11,color}}>{qIdx+1}/{total}</div>
+        <button onClick={()=>setScreen("home")} style={{...S.btn(C.dim),padding:"7px 14px",fontSize:13}}>✕ Exit</button>
+        <div style={{fontSize:12,color:C.dim,fontWeight:500}}>{mode==="domain"?qDomainName:mode==="practice"?"Practice Test":"Daily Practice"}</div>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <button onClick={()=>{setShowRef(true);setRefQuery("");}} title="Quick reference" style={{background:"transparent",border:`1px solid ${color}`,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:16,color,fontFamily:"inherit"}}>📖</button>
+          <div style={{fontSize:13,color,fontWeight:600}}>{qIdx+1}/{total}</div>
+        </div>
       </div>
       <div style={{height:8,background:C.border,borderRadius:4,marginBottom:20,overflow:"hidden"}}><div style={{height:"100%",width:`${Math.round((qIdx/total)*100)}%`,background:color,transition:"width 0.3s",boxShadow:`0 0 8px ${color}`}}/></div>
       <div style={{marginBottom:12}}><span style={{...S.tag(color),marginRight:8}}>{qDomainName}</span><span style={S.tag(C.muted)}>{q.topic}</span></div>
