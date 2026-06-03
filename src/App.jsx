@@ -164,8 +164,8 @@ const S={
 function ProgressBar({pct,color,height=4}){
   return <div style={{height,background:C.border,borderRadius:height/2,overflow:"hidden"}}><div style={{height:"100%",width:`${pct}%`,background:color,boxShadow:`0 0 6px ${color}`,transition:"width 0.4s"}}/></div>;
 }
-function MenuCard({icon,title,sub,color,onClick,locked}){
-  return <div onClick={onClick} style={{...S.card(locked?C.border:color),cursor:locked?"not-allowed":"pointer",opacity:locked?0.5:1,display:"flex",alignItems:"center",gap:14}}><div style={{fontSize:28,minWidth:36,textAlign:"center"}}>{icon}</div><div style={{flex:1}}><div style={{fontSize:14,fontWeight:"bold",color:locked?C.dim:color,marginBottom:3}}>{title}</div><div style={{fontSize:11,color:C.dim}}>{sub}</div></div>{!locked&&<div style={{color,fontSize:16}}>›</div>}</div>;
+function MenuCard({icon,title,sub,color,onClick,locked,children}){
+  return <div onClick={onClick} style={{...S.card(locked?C.border:color),cursor:locked?"not-allowed":"pointer",opacity:locked?0.7:1,display:"flex",alignItems:"flex-start",gap:14}}><div style={{fontSize:28,minWidth:36,textAlign:"center",paddingTop:2}}>{icon}</div><div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:locked?C.dim:color,marginBottom:4}}>{title}</div>{children||<div style={{fontSize:12,color:C.dim}}>{sub}</div>}</div>{!locked&&<div style={{color,fontSize:16,paddingTop:2}}>›</div>}</div>;
 }
 function BackBtn({onClick,color}){
   return <button onClick={onClick} style={{...S.btn(color),padding:"7px 16px",fontSize:13,marginBottom:20}}>← Back</button>;
@@ -279,14 +279,30 @@ function HomeScreen({save,dp,practiceUnlocked,setScreen,setQuizState,setFcState,
       <MenuCard icon="📚" title="Domain Study" sub="5 domains · Professor Messer order" color={C.d1} onClick={()=>setScreen("domainSelect")}/>
       <MenuCard icon="⚡" title="Daily Quick Practice" sub={`10 questions · ${Object.keys(save.weakQuestions||{}).length>0?`${Object.keys(save.weakQuestions||{}).length} weak questions flagged`:"Based on domains you have completed"}`} color={C.gold} onClick={()=>setScreen("daily")}/>
       <MenuCard icon="🃏" title="Flashcards" sub="Flip · Drill · Browse · Acronyms & Analogies" color={C.purple} onClick={()=>{setFcState(null);setScreen("flashcards");}}/>
-      <MenuCard icon={practiceUnlocked?"🎯":"🔒"} title="Full Practice Test" sub={practiceUnlocked?`90 questions · Timed · Full report${lastPractice?` · Last: ${lastPractice.pct}%`:""}` :"Complete all 5 domains to unlock"} color={practiceUnlocked?C.d4:C.muted} onClick={()=>setScreen("practiceGate")} locked={!practiceUnlocked}/>
+      <MenuCard icon={practiceUnlocked?"🎯":"🔒"} title="Full Practice Test" sub={practiceUnlocked?`90 questions · Timed · Full report${lastPractice?` · Last: ${lastPractice.pct}%`:""}`:undefined} color={practiceUnlocked?C.d4:C.muted} onClick={()=>setScreen("practiceGate")} locked={!practiceUnlocked}>
+        {!practiceUnlocked&&<div style={{marginTop:2}}>
+          <div style={{fontSize:12,color:C.dim,marginBottom:8}}>Complete all domains to unlock:</div>
+          {DOMAINS.map(d=><div key={d.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
+            <span style={{fontSize:13}}>{dp[d.id]?"✅":"⬜"}</span>
+            <span style={{fontSize:12,color:dp[d.id]?C.green:C.dim,flex:1}}>{d.name}</span>
+            {dp[d.id]&&<span style={{fontSize:11,fontWeight:600,color:scoreColor(dp[d.id].bestScore)}}>{dp[d.id].bestScore}%</span>}
+          </div>)}
+        </div>}
+      </MenuCard>
       <div style={{marginTop:24}}>
         <div style={S.label()}>Domain Progress</div>
         {DOMAINS.map(d=>{
           const prog=dp[d.id];const pct=prog?.bestScore||0;
+          const delta=prog&&prog.prevScore!=null?prog.lastPct-prog.prevScore:0;
           return <div key={d.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${C.border}`}}>
             <div style={{fontSize:16,width:24}}>{d.icon}</div>
-            <div style={{flex:1}}><div style={{fontSize:12,color:d.color,marginBottom:3}}>{d.name}</div><ProgressBar pct={pct} color={d.color} height={3}/></div>
+            <div style={{flex:1}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                <div style={{fontSize:12,color:d.color,fontWeight:500}}>{d.name}</div>
+                {delta!==0&&<span style={{fontSize:11,fontWeight:700,color:delta>0?C.green:C.orange}}>{delta>0?"+":""}{delta}%</span>}
+              </div>
+              <ProgressBar pct={pct} color={d.color} height={5}/>
+            </div>
             <div style={{fontSize:13,fontWeight:"bold",color:prog?scoreColor(pct):C.muted,minWidth:40,textAlign:"right"}}>{prog?`${pct}%`:"—"}</div>
           </div>;
         })}
@@ -728,7 +744,7 @@ function QuizScreen({quizState,setQuizState,save,updateSave,setScreen,mode}){
     }else{
       const pct=Math.round((newScore/total)*100);
       const finalState={...quizState,answers:newAnswers,score:newScore,confidence:newConf,finalPct:pct,finishedAt:Date.now()};
-      if(mode==="domain"){const dp=save.domainProgress||{};const prev=dp[quizState.domain.id]||{};await updateSave({weakQuestions:wq,domainProgress:{...dp,[quizState.domain.id]:{bestScore:Math.max(pct,prev.bestScore||0),attempts:(prev.attempts||0)+1,lastPct:pct}}});}
+      if(mode==="domain"){const dp=save.domainProgress||{};const prev=dp[quizState.domain.id]||{};await updateSave({weakQuestions:wq,domainProgress:{...dp,[quizState.domain.id]:{bestScore:Math.max(pct,prev.bestScore||0),attempts:(prev.attempts||0)+1,lastPct:pct,prevScore:prev.lastPct??null}}});}
       else if(mode==="practice"){const hist=save.practiceHistory||[];await updateSave({weakQuestions:wq,practiceHistory:[...hist,{pct,date:Date.now(),total}]});}
       else{await updateSave({weakQuestions:wq});}
       setQuizState(finalState);setScreen("result");
