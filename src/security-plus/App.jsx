@@ -176,7 +176,7 @@ const S={
   card:(border=C.border)=>({border:`1px solid ${border}`,borderRadius:16,padding:"20px 24px",background:C.surface,marginBottom:16,boxShadow:"var(--c-shadow)"}),
   label:(color=C.dim)=>({fontSize:11,letterSpacing:1,color,textTransform:"uppercase",fontWeight:600,marginBottom:8}),
   btn:(color,fill)=>({padding:"10px 22px",borderRadius:10,border:`1px solid ${color}`,background:fill?color:"transparent",color:fill?"#fff":color,cursor:"pointer",fontSize:13,fontWeight:600,fontFamily:"inherit",transition:"all 0.15s"}),
-  optionBtn:(state,color)=>({display:"block",width:"100%",textAlign:"left",padding:"14px 16px",marginBottom:10,borderRadius:12,border:`1px solid ${state==="correct"?C.green:state==="wrong"?C.red:state==="selected"?color:C.border}`,background:state==="correct"?`rgba(${hexRgb(C.green)},0.1)`:state==="wrong"?`rgba(${hexRgb(C.red)},0.1)`:state==="selected"?`rgba(${hexRgb(color)},0.1)`:"transparent",color:state==="correct"?C.green:state==="wrong"?C.red:state==="selected"?color:C.dim,cursor:"pointer",fontSize:14,lineHeight:1.6,fontFamily:"inherit",fontWeight:500,transition:"all 0.15s"}),
+  optionBtn:(state,color)=>({display:"block",width:"100%",textAlign:"left",padding:"14px 16px",marginBottom:14,borderRadius:12,border:`1px solid ${state==="correct"?C.green:state==="wrong"?C.red:state==="selected"?color:C.border}`,background:state==="correct"?`rgba(${hexRgb(C.green)},0.1)`:state==="wrong"?`rgba(${hexRgb(C.red)},0.1)`:state==="selected"?`rgba(${hexRgb(color)},0.1)`:"transparent",color:state==="correct"?C.green:state==="wrong"?C.red:state==="selected"?color:C.dim,cursor:"pointer",fontSize:14,lineHeight:1.6,fontFamily:"inherit",fontWeight:500,transition:"all 0.15s"}),
   row:{display:"flex",gap:10,flexWrap:"wrap",marginTop:14},
   tag:(color)=>({fontSize:11,padding:"4px 12px",border:`1px solid ${color}`,borderRadius:20,color,fontWeight:600,display:"inline-block"}),
 };
@@ -188,7 +188,7 @@ function MenuCard({icon,title,sub,color,onClick,locked}){
   return <div onClick={onClick} style={{...S.card(locked?C.border:color),cursor:locked?"not-allowed":"pointer",opacity:locked?0.5:1,display:"flex",alignItems:"center",gap:14}}><div style={{fontSize:28,minWidth:36,textAlign:"center"}}>{icon}</div><div style={{flex:1}}><div style={{fontSize:14,fontWeight:"bold",color:locked?C.dim:color,marginBottom:3}}>{title}</div><div style={{fontSize:11,color:C.dim}}>{sub}</div></div>{!locked&&<div style={{color,fontSize:16}}>›</div>}</div>;
 }
 function BackBtn({onClick,color}){
-  return <button onClick={onClick} style={{...S.btn(color),padding:"5px 14px",fontSize:10,marginBottom:20}}>← BACK</button>;
+  return <button onClick={onClick} style={{...S.btn(color),padding:"7px 16px",fontSize:13,marginBottom:20}}>← Back</button>;
 }
 function buildDeck(domainId,save){
   const all=FLASHCARD_DOMAINS.flatMap(fd=>fd.cards.map(c=>({...c,deckColor:fd.color,deckName:fd.name,deckId:fd.id})));
