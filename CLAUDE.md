@@ -150,6 +150,44 @@ Riley's approved 4-phase plan:
 
 ---
 
+## Supabase Project (Phase 1 — already created, $0/month)
+
+**Project ID:** `nphckfzkmwzomdcyfvih`
+**URL:** `https://nphckfzkmwzomdcyfvih.supabase.co`
+**Dashboard:** https://supabase.com/dashboard/project/nphckfzkmwzomdcyfvih
+**Anon key:** in `.env.local` (gitignored — never commit this file)
+
+**Tables live:**
+- `public.profiles` — one row per user, includes `is_paid`, `plan`, `stripe_customer_id`, `paid_certs[]`
+- `public.cert_progress` — progress per user per cert key, mirrors localStorage shape
+
+**RLS:** enabled on both tables — users can only read/write their own rows.
+
+**Auto-trigger:** `on_auth_user_created` auto-creates a `profiles` row on signup.
+
+**Stripe helpers (ready, not yet called):**
+- `activate_subscription(customer_id, subscription_id, plan, paid_certs[])` — flips `is_paid=true`
+- `deactivate_subscription(subscription_id)` — flips `is_paid=false` on cancellation
+
+**New files (local only, not yet pushed to GitHub):**
+- `src/supabase.js` — Supabase client + auth helpers (signUp, signIn, signOut, getProfile, onAuthChange)
+- `src/saveManager.js` — drop-in `loadSave`/`writeSave` replacement (Supabase + localStorage fallback)
+- `.env.local` — credentials (gitignored via `*.local` in .gitignore)
+
+**To wire a cert app to cloud sync:**
+Replace the inline `loadSave`/`writeSave` functions in any App.jsx with:
+```js
+import { loadSave, writeSave } from '../saveManager.js';
+```
+Anonymous users get localStorage only. Authenticated users get Supabase + localStorage cache.
+
+**What's NOT done yet (Phase 1 remaining work):**
+- Auth UI (login/signup screens)
+- Wire cert apps to use saveManager.js
+- Paywall gate in Landing.jsx (Phase 2)
+- Stripe integration (Phase 3)
+- Evan security review before anything ships
+
 ## MCP Tools Available
 
 The following MCP integrations may be available in this session. Use them proactively:
