@@ -802,18 +802,16 @@ function QuizScreen({quizState,setQuizState,save,updateSave,setScreen,mode}){
         <div style={{fontSize:10,color:C.dim,letterSpacing:2}}>{mode==="domain"?qDomainName.toUpperCase():mode==="practice"?"PRACTICE TEST":"DAILY PRACTICE"}</div>
         <div style={{fontSize:11,color}}>{qIdx+1}/{total}</div>
       </div>
-      <div style={{height:4,background:C.border,borderRadius:2,marginBottom:20,overflow:"hidden"}}><div style={{height:"100%",width:`${Math.round((qIdx/total)*100)}%`,background:color,transition:"width 0.3s",boxShadow:`0 0 8px ${color}`}}/></div>
+      <div style={{height:8,background:C.border,borderRadius:4,marginBottom:20,overflow:"hidden"}}><div style={{height:"100%",width:`${Math.round((qIdx/total)*100)}%`,background:color,transition:"width 0.3s",boxShadow:`0 0 8px ${color}`}}/></div>
       <div style={{marginBottom:12}}><span style={{...S.tag(color),marginRight:8}}>{qDomainName}</span><span style={S.tag(C.muted)}>{q.topic}</span></div>
       <div style={{fontSize:17,lineHeight:1.75,color:C.text,marginBottom:20,padding:"18px",background:C.surface,borderRadius:14,border:`1px solid ${C.border}`,fontWeight:500}}>{q.q}</div>
       {q.options.map((opt,i)=>(<button key={i} onClick={()=>{if(!confirmed)setSelected(i);}} style={S.optionBtn(getState(i),color)}><span style={{marginRight:10,opacity:0.5}}>{String.fromCharCode(65+i)}.</span>{opt}</button>))}
       <div style={{fontSize:10,color:C.muted,letterSpacing:1,textAlign:"center",margin:"6px 0"}}>A B C D select · 1 know it · 2 guess · Enter confirm</div>
       {!confirmed&&selected!==null&&(
-        <div style={{marginTop:10,padding:"12px 14px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8}}>
+        <div style={{marginTop:10,padding:"14px 16px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:12}}>
           <div style={S.label()}>How confident are you?</div>
-          <div style={S.row}>
-            <button onClick={()=>setConf("sure")} style={{...S.btn(conf==="sure"?C.green:C.muted,conf==="sure"),flex:1}}>✓ I Know This</button>
-            <button onClick={()=>setConf("guess")} style={{...S.btn(conf==="guess"?C.orange:C.muted,conf==="guess"),flex:1}}>? Educated Guess</button>
-          </div>
+          <button onClick={()=>setConf("sure")} style={{...S.btn(conf==="sure"?C.green:C.muted,conf==="sure"),width:"100%",marginBottom:10}}>✓ I Know This</button>
+          <button onClick={()=>setConf("guess")} style={{...S.btn(conf==="guess"?C.orange:C.muted,conf==="guess"),width:"100%"}}>? Educated Guess</button>
         </div>
       )}
       {confirmed&&(
@@ -835,6 +833,11 @@ function QuizScreen({quizState,setQuizState,save,updateSave,setScreen,mode}){
           :<button onClick={handleNext} style={{...S.btn(color,true),flex:1}}>{qIdx+1<total?"NEXT QUESTION →":"SEE RESULTS"}</button>
         }
       </div>
+      {!confirmed&&(selected===null||conf===null)&&(
+        <div style={{textAlign:"center",fontSize:13,color:C.dim,marginTop:8}}>
+          {selected===null?"👆 Select an answer to continue":"👆 Select your confidence level above"}
+        </div>
+      )}
     </div></div>
   );
 }
