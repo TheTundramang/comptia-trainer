@@ -62,6 +62,9 @@ const FLASHCARD_DOMAINS=[
   ]},
 ];
 
+const CORE1_IDS=[1,2,3,4,5];
+const CORE2_IDS=[6,7,8,9];
+
 const DOMAINS=[
   {id:1,name:"Mobile Devices",weight:"15%",color:C.d1,icon:"📱",desc:"Display types, connectors, mobile OS, accessories, synchronization",questions:[
     {topic:"Display Types",q:"A user reports their laptop screen shows vivid colors at straight-on viewing but colors shift noticeably when viewed from the side. Which display type is this?",options:["IPS","OLED","TN","VA"],answer:2,explanation:"TN (Twisted Nematic) panels have the narrowest viewing angles of common display technologies. Colors shift and wash out when viewed off-axis, which is a characteristic symptom of TN panels.",analogy:"TN is like looking at a photo album that only looks good when held directly in front of you. Tilt it and the picture looks wrong.",realWorld:"When recommending a laptop display for a designer or anyone who works with others reviewing their screen, always recommend IPS or OLED — never TN."},
@@ -266,6 +269,7 @@ export default function App({onExit}){
   const [screen,setScreen]=useState("home");
   const [quizState,setQuizState]=useState(null);
   const [fcState,setFcState]=useState(null);
+  const [coreMode,setCoreMode]=useState(null);
   useEffect(()=>{
     loadSave().then(s=>{
       const data=s||{};
@@ -284,13 +288,15 @@ export default function App({onExit}){
   async function updateSave(patch){const next={...save,...patch};setSave(next);await writeSave(next);}
   if(save===null) return <div style={{...S.app,display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:C.dim,letterSpacing:3,fontSize:12}}>LOADING...</div></div>;
   const dp=save.domainProgress||{};
-  const practiceUnlocked=DOMAINS.every(d=>dp[d.id]);
-  if(screen==="home") return <HomeScreen save={save} dp={dp} practiceUnlocked={practiceUnlocked} setScreen={setScreen} setQuizState={setQuizState} setFcState={setFcState} onExit={onExit}/>;
-  if(screen==="domainSelect") return <DomainSelectScreen dp={dp} setScreen={setScreen} setQuizState={setQuizState}/>;
+  const activeDomains=coreMode==="core1"?DOMAINS.filter(d=>CORE1_IDS.includes(d.id)):coreMode==="core2"?DOMAINS.filter(d=>CORE2_IDS.includes(d.id)):DOMAINS;
+  const practiceUnlocked=activeDomains.every(d=>dp[d.id]);
+  if(coreMode===null) return <CoreSelectScreen setCoreMode={setCoreMode} onExit={onExit}/>;
+  if(screen==="home") return <HomeScreen save={save} dp={dp} practiceUnlocked={practiceUnlocked} setScreen={setScreen} setQuizState={setQuizState} setFcState={setFcState} onExit={onExit} coreMode={coreMode} setCoreMode={setCoreMode} activeDomains={activeDomains}/>;
+  if(screen==="domainSelect") return <DomainSelectScreen dp={dp} setScreen={setScreen} setQuizState={setQuizState} domains={activeDomains}/>;
   if(screen==="domainQuiz"&&quizState) return <QuizScreen quizState={quizState} setQuizState={setQuizState} save={save} updateSave={updateSave} setScreen={setScreen} mode="domain"/>;
-  if(screen==="daily") return <DailyScreen dp={dp} setScreen={setScreen} setQuizState={setQuizState}/>;
+  if(screen==="daily") return <DailyScreen dp={dp} setScreen={setScreen} setQuizState={setQuizState} save={save} domains={activeDomains}/>;
   if(screen==="dailyQuiz"&&quizState) return <QuizScreen quizState={quizState} setQuizState={setQuizState} save={save} updateSave={updateSave} setScreen={setScreen} mode="daily"/>;
-  if(screen==="practiceGate") return <PracticeGate practiceUnlocked={practiceUnlocked} dp={dp} setScreen={setScreen} setQuizState={setQuizState}/>;
+  if(screen==="practiceGate") return <PracticeGate practiceUnlocked={practiceUnlocked} dp={dp} setScreen={setScreen} setQuizState={setQuizState} domains={activeDomains}/>;
   if(screen==="practiceQuiz"&&quizState) return <QuizScreen quizState={quizState} setQuizState={setQuizState} save={save} updateSave={updateSave} setScreen={setScreen} mode="practice"/>;
   if(screen==="result") return <ResultScreen quizState={quizState} setScreen={setScreen} setQuizState={setQuizState} save={save} updateSave={updateSave}/>;
   if(screen==="review") return <ReviewScreen quizState={quizState} setScreen={setScreen}/>;
@@ -301,18 +307,59 @@ export default function App({onExit}){
   return null;
 }
 
-function HomeScreen({save,dp,practiceUnlocked,setScreen,setQuizState,setFcState,onExit}){
-  const attempts=Object.values(dp);
-  const overallPct=attempts.length?Math.round(attempts.reduce((s,d)=>s+d.bestScore,0)/DOMAINS.length):0;
-  const lastPractice=(save.practiceHistory||[]).slice(-1)[0];
+function CoreSelectScreen({setCoreMode,onExit}){
+  const cores=[
+    {id:"core1",name:"Core 1",code:"220-1101",icon:"🖥️",color:C.d3,desc:"Hardware & Fundamentals",detail:"Mobile · Networking · Hardware · Virtualization · Troubleshooting"},
+    {id:"core2",name:"Core 2",code:"220-1102",icon:"💻",color:C.gold,desc:"OS, Security & Procedures",detail:"Operating Systems · Security · Software Troubleshooting · Ops"},
+    {id:"all",name:"Full A+",code:"220-1101/1102",icon:"🎯",color:C.d2,desc:"Both exams combined",detail:"All 9 domains · Complete A+ coverage"},
+  ];
   return(
     <div style={S.app}><div style={S.scan}/>
     <div style={S.wrap}>
       <div style={{textAlign:"center",marginBottom:28,position:"relative"}}>
         {onExit&&<button onClick={onExit} style={{position:"absolute",top:0,left:0,...S.btn(C.dim),padding:"4px 12px",fontSize:10}}>← ALL CERTS</button>}
-        <div style={{fontSize:10,color:C.dim,letterSpacing:5,marginBottom:8}}>COMPTIA 220-1101/1102</div>
+        <div style={{fontSize:10,color:C.dim,letterSpacing:5,marginBottom:8}}>COMPTIA A+</div>
+        <div style={{fontSize:26,fontWeight:"bold",letterSpacing:4,color:C.d2,textShadow:`0 0 24px rgba(${hexRgb(C.d2)},0.5)`,marginBottom:4}}>SELECT EXAM</div>
+        <div style={{fontSize:10,color:C.dim,letterSpacing:3}}>CORE 1 · CORE 2 · OR BOTH</div>
+      </div>
+      <div style={S.divider}/>
+      {cores.map(core=>(
+        <div key={core.id} onClick={()=>setCoreMode(core.id)} style={{...S.card(core.color),cursor:"pointer",display:"flex",alignItems:"center",gap:18,marginBottom:16}}>
+          <div style={{fontSize:36,minWidth:44,textAlign:"center"}}>{core.icon}</div>
+          <div style={{flex:1}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+              <div style={{fontSize:16,fontWeight:"bold",color:core.color,letterSpacing:1}}>{core.name}</div>
+              <div style={{fontSize:10,padding:"2px 8px",border:`1px solid ${core.color}`,borderRadius:10,color:core.color,letterSpacing:1}}>{core.code}</div>
+            </div>
+            <div style={{fontSize:12,color:C.dim,marginBottom:3}}>{core.desc}</div>
+            <div style={{fontSize:11,color:core.color,letterSpacing:1}}>{core.detail}</div>
+          </div>
+          <div style={{color:core.color,fontSize:20}}>›</div>
+        </div>
+      ))}
+      <div style={{marginTop:8,padding:"14px 16px",border:`1px solid ${C.border}`,borderRadius:8,fontSize:11,color:C.dim,lineHeight:1.8,textAlign:"center"}}>
+        Core 1 (220-1101) and Core 2 (220-1102) are separate CompTIA exams. Practice them individually or together.
+      </div>
+    </div></div>
+  );
+}
+
+function HomeScreen({save,dp,practiceUnlocked,setScreen,setQuizState,setFcState,onExit,coreMode,setCoreMode,activeDomains}){
+  const activeDp=Object.fromEntries(Object.entries(dp).filter(([k])=>activeDomains.some(d=>d.id===Number(k))));
+  const attempts=Object.values(activeDp);
+  const overallPct=attempts.length?Math.round(attempts.reduce((s,d)=>s+d.bestScore,0)/activeDomains.length):0;
+  const lastPractice=(save.practiceHistory||[]).slice(-1)[0];
+  const codeLabel=coreMode==="core1"?"220-1101":coreMode==="core2"?"220-1102":"220-1101/1102";
+  const modeLabel=coreMode==="core1"?"CORE 1 · 5 DOMAINS":coreMode==="core2"?"CORE 2 · 4 DOMAINS":"CORE 1 + CORE 2 · ALL 9 DOMAINS";
+  return(
+    <div style={S.app}><div style={S.scan}/>
+    <div style={S.wrap}>
+      <div style={{textAlign:"center",marginBottom:28,position:"relative"}}>
+        {onExit&&<button onClick={onExit} style={{position:"absolute",top:0,left:0,...S.btn(C.dim),padding:"4px 12px",fontSize:10}}>← ALL CERTS</button>}
+        <button onClick={()=>setCoreMode(null)} style={{position:"absolute",top:0,right:0,...S.btn(C.d2),padding:"4px 12px",fontSize:10}}>SWITCH EXAM</button>
+        <div style={{fontSize:10,color:C.dim,letterSpacing:5,marginBottom:8}}>COMPTIA {codeLabel}</div>
         <div style={{fontSize:26,fontWeight:"bold",letterSpacing:4,color:C.d2,textShadow:`0 0 24px rgba(${hexRgb(C.d2)},0.5)`,marginBottom:4}}>COMPTIA TRAINER</div>
-        <div style={{fontSize:10,color:C.dim,letterSpacing:3}}>CORE 1 + CORE 2 &bull; ALL 9 DOMAINS</div>
+        <div style={{fontSize:10,color:C.dim,letterSpacing:3}}>{modeLabel}</div>
       </div>
       <div style={S.divider}/>
       {save.streak>0&&<div style={{textAlign:"center",marginBottom:18}}>
@@ -325,19 +372,19 @@ function HomeScreen({save,dp,practiceUnlocked,setScreen,setQuizState,setFcState,
           <div style={S.label()}>Overall Readiness</div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
             <div style={{fontSize:28,fontWeight:"bold",color:scoreColor(overallPct)}}>{overallPct}%</div>
-            <div style={{fontSize:11,color:C.dim}}>{attempts.length}/9 domains attempted</div>
+            <div style={{fontSize:11,color:C.dim}}>{attempts.length}/{activeDomains.length} domains attempted</div>
           </div>
           <ProgressBar pct={overallPct} color={scoreColor(overallPct)}/>
           {overallPct>=80&&<div style={{fontSize:11,color:C.green,marginTop:8,letterSpacing:1}}>★ EXAM READY THRESHOLD MET</div>}
         </div>
       )}
-      <MenuCard icon="📚" title="Domain Study" sub="9 domains · Core 1 + Core 2" color={C.d2} onClick={()=>setScreen("domainSelect")}/>
+      <MenuCard icon="📚" title="Domain Study" sub={coreMode==="core1"?"5 domains · Core 1 (220-1101)":coreMode==="core2"?"4 domains · Core 2 (220-1102)":"9 domains · Core 1 + Core 2"} color={C.d2} onClick={()=>setScreen("domainSelect")}/>
       <MenuCard icon="⚡" title="Daily Quick Practice" sub={`10 questions · ${Object.keys(save.weakQuestions||{}).length>0?`${Object.keys(save.weakQuestions||{}).length} weak questions flagged`:"Based on domains you have completed"}`} color={C.gold} onClick={()=>setScreen("daily")}/>
       <MenuCard icon="🃏" title="Flashcards" sub="Flip · Drill · Browse · Acronyms & Analogies" color={C.purple} onClick={()=>{setFcState(null);setScreen("flashcards");}}/>
-      <MenuCard icon={practiceUnlocked?"🎯":"🔒"} title="Full Practice Test" sub={practiceUnlocked?`90 questions · Timed · Full report${lastPractice?` · Last: ${lastPractice.pct}%`:""}` :"Complete all 9 domains to unlock"} color={practiceUnlocked?C.d2:C.muted} onClick={()=>setScreen("practiceGate")} locked={!practiceUnlocked}/>
+      <MenuCard icon={practiceUnlocked?"🎯":"🔒"} title="Full Practice Test" sub={practiceUnlocked?`${activeDomains.length*10} questions · Timed · Full report${lastPractice?` · Last: ${lastPractice.pct}%`:""}` :`Complete all ${activeDomains.length} domains to unlock`} color={practiceUnlocked?C.d2:C.muted} onClick={()=>setScreen("practiceGate")} locked={!practiceUnlocked}/>
       <div style={{marginTop:24}}>
         <div style={S.label()}>Domain Progress</div>
-        {DOMAINS.map(d=>{
+        {activeDomains.map(d=>{
           const prog=dp[d.id];const pct=prog?.bestScore||0;
           return <div key={d.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${C.border}`}}>
             <div style={{fontSize:16,width:24}}>{d.icon}</div>
@@ -347,7 +394,7 @@ function HomeScreen({save,dp,practiceUnlocked,setScreen,setQuizState,setFcState,
         })}
       </div>
       <div style={{marginTop:20,padding:"12px 16px",border:`1px solid ${C.border}`,borderRadius:8,fontSize:11,color:C.dim,lineHeight:1.8}}>
-        <span style={{color:C.d2}}>HOW TO USE: </span>Work through Core 1 domains (1-5) then Core 2 domains (6-9). Use Flashcards anytime. After all 9 domains, the Full Practice Test unlocks. Target 80%+ before exam day.
+        <span style={{color:C.d2}}>HOW TO USE: </span>{coreMode==="core1"?"Work through all 5 Core 1 domains. Use Flashcards anytime. After all 5 domains, the Practice Test (220-1101) unlocks. Target 80%+ before exam day.":coreMode==="core2"?"Work through all 4 Core 2 domains. Use Flashcards anytime. After all 4 domains, the Practice Test (220-1102) unlocks. Target 80%+ before exam day.":"Work through Core 1 domains (1-5) then Core 2 domains (6-9). Use Flashcards anytime. After all 9 domains, the Full Practice Test unlocks. Target 80%+ before exam day."}
       </div>
     </div></div>
   );
@@ -586,13 +633,13 @@ function FlashcardBrowse({setScreen,save}){
   );
 }
 
-function DomainSelectScreen({dp,setScreen,setQuizState}){
+function DomainSelectScreen({dp,setScreen,setQuizState,domains}){
   return(
     <div style={S.app}><div style={S.scan}/>
     <div style={S.wrap}>
       <BackBtn onClick={()=>setScreen("home")} color={C.d2}/>
       <div style={S.label(C.d2)}>Select a Domain</div>
-      {DOMAINS.map(d=>{
+      {domains.map(d=>{
         const prog=dp[d.id];const pct=prog?.bestScore||0;
         return(<div key={d.id} style={{...S.card(d.color),cursor:"pointer"}}
           onClick={()=>{setQuizState({mode:"domain",domain:d,questions:d.questions.map(q=>({...q,domainId:d.id,domainName:d.name,domainColor:d.color})),qIdx:0,answers:[],score:0,confidence:[]});setScreen("domainQuiz");}}>
@@ -612,11 +659,11 @@ function DomainSelectScreen({dp,setScreen,setQuizState}){
   );
 }
 
-function DailyScreen({dp,setScreen,setQuizState}){
-  const attempted=DOMAINS.filter(d=>dp[d.id]);
-  const available=attempted.length>0?attempted:DOMAINS.slice(0,1);
+function DailyScreen({dp,setScreen,setQuizState,save,domains}){
+  const attempted=domains.filter(d=>dp[d.id]);
+  const available=attempted.length>0?attempted:domains.slice(0,1);
   function startDaily(domains){
-    const wq=save.weakQuestions||{};
+    const wq=(save&&save.weakQuestions)||{};
     const weakKeys=new Set(Object.keys(wq));
     const pool=domains.flatMap(d=>d.questions.map(q=>({...q,domainId:d.id,domainName:d.name,domainColor:d.color})));
     const weakPool=shuffle(pool.filter(q=>weakKeys.has(q.q.slice(0,40))));
@@ -650,12 +697,11 @@ function DailyScreen({dp,setScreen,setQuizState}){
   );
 }
 
-function PracticeGate({practiceUnlocked,dp,setScreen,setQuizState}){
+function PracticeGate({practiceUnlocked,dp,setScreen,setQuizState,domains}){
   function startPractice(){
     const pool=[];
-    [{d:1,n:10},{d:2,n:10},{d:3,n:10},{d:4,n:10},{d:5,n:10},{d:6,n:10},{d:7,n:10},{d:8,n:10},{d:9,n:10}].forEach(({d,n})=>{
-      const dom=DOMAINS.find(x=>x.id===d);
-      shuffle(dom.questions).slice(0,Math.min(n,dom.questions.length)).forEach(q=>pool.push({...q,domainId:dom.id,domainName:dom.name,domainColor:dom.color}));
+    domains.forEach(dom=>{
+      shuffle(dom.questions).slice(0,Math.min(10,dom.questions.length)).forEach(q=>pool.push({...q,domainId:dom.id,domainName:dom.name,domainColor:dom.color}));
     });
     setQuizState({mode:"practice",questions:shuffle(pool),qIdx:0,answers:[],score:0,confidence:[],startTime:Date.now()});
     setScreen("practiceQuiz");
@@ -668,9 +714,9 @@ function PracticeGate({practiceUnlocked,dp,setScreen,setQuizState}){
         <div style={{textAlign:"center",padding:"40px 20px"}}>
           <div style={{fontSize:48,marginBottom:16}}>🔒</div>
           <div style={{fontSize:18,color:C.d2,fontWeight:"bold",marginBottom:12,letterSpacing:2}}>PRACTICE TEST LOCKED</div>
-          <div style={{fontSize:12,color:C.dim,lineHeight:1.8,marginBottom:24}}>Complete all 9 domain study sessions at least once to unlock the Full Practice Test.</div>
+          <div style={{fontSize:12,color:C.dim,lineHeight:1.8,marginBottom:24}}>Complete all {domains.length} domain study sessions at least once to unlock the Full Practice Test.</div>
           <div style={S.divider}/>
-          {DOMAINS.map(d=>(<div key={d.id} style={{display:"flex",alignItems:"center",gap:12,padding:"8px 0",borderBottom:`1px solid ${C.border}`}}>
+          {domains.map(d=>(<div key={d.id} style={{display:"flex",alignItems:"center",gap:12,padding:"8px 0",borderBottom:`1px solid ${C.border}`}}>
             <div style={{fontSize:18}}>{dp[d.id]?"✅":"⬜"}</div>
             <div style={{fontSize:12,color:dp[d.id]?C.green:C.dim}}>{d.name}</div>
             {dp[d.id]&&<div style={{marginLeft:"auto",fontSize:11,color:scoreColor(dp[d.id].bestScore)}}>{dp[d.id].bestScore}%</div>}
@@ -682,7 +728,7 @@ function PracticeGate({practiceUnlocked,dp,setScreen,setQuizState}){
           <div style={{fontSize:18,color:C.d2,fontWeight:"bold",letterSpacing:2,marginBottom:8}}>FULL PRACTICE TEST</div>
           <div style={{fontSize:11,color:C.dim,letterSpacing:2,marginBottom:24}}>220-1101/1102 SIMULATION</div>
           <div style={{display:"flex",justifyContent:"center",gap:28,marginBottom:28,flexWrap:"wrap"}}>
-            {[["90","QUESTIONS"],["9","DOMAINS"],["~80%","PASSING"],["TIMED","SESSION"]].map(([v,l])=>(<div key={l} style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:"bold",color:C.d2}}>{v}</div><div style={{fontSize:9,color:C.dim,letterSpacing:1}}>{l}</div></div>))}
+            {[[`${domains.length*10}`,"QUESTIONS"],[`${domains.length}`,"DOMAINS"],["~80%","PASSING"],["TIMED","SESSION"]].map(([v,l])=>(<div key={l} style={{textAlign:"center"}}><div style={{fontSize:20,fontWeight:"bold",color:C.d2}}>{v}</div><div style={{fontSize:9,color:C.dim,letterSpacing:1}}>{l}</div></div>))}
           </div>
           <div style={{...S.card(),textAlign:"left",marginBottom:20}}>
             <div style={S.label(C.gold)}>After the test you get</div>
