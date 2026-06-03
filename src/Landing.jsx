@@ -1,5 +1,6 @@
 import { useState, Suspense, lazy } from "react";
 import { useTheme } from "./useTheme.js";
+import { ThemeToggle, Loading } from "./ui.jsx";
 
 const NetworkPlusApp  = lazy(() => import("./network-plus/App.jsx"));
 const APlusApp        = lazy(() => import("./a-plus/App.jsx"));
@@ -27,34 +28,6 @@ const CERTS = [
     domains:"5 domains · 90+ questions", status:"available",
   },
 ];
-
-function Loading() {
-  return (
-    <div style={{minHeight:"100vh",background:"var(--c-bg)",display:"flex",alignItems:"center",justifyContent:"center"}}>
-      <div style={{color:"var(--c-dim)",fontSize:15}}>Loading...</div>
-    </div>
-  );
-}
-
-export function ThemeToggle({ isDark, toggleTheme, style }) {
-  return (
-    <button
-      onClick={toggleTheme}
-      title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      style={{
-        width:42, height:42, borderRadius:21,
-        border:"1px solid var(--c-border)",
-        background:"var(--c-surface)",
-        cursor:"pointer", fontSize:20,
-        display:"flex", alignItems:"center", justifyContent:"center",
-        boxShadow:"var(--c-shadow)", transition:"all 0.2s",
-        flexShrink:0, ...style,
-      }}
-    >
-      {isDark ? "☀️" : "🌙"}
-    </button>
-  );
-}
 
 export default function Landing() {
   const [selected, setSelected] = useState(null);

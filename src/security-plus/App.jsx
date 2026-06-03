@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { ProgressBar, MenuCard, BackBtn, ThemeToggle, Celebration } from "../ui.jsx";
 import { useTheme } from "../useTheme.js";
 
 const C = {
@@ -181,15 +182,6 @@ const S={
   tag:(color)=>({fontSize:11,padding:"4px 12px",border:`1px solid ${color}`,borderRadius:20,color,fontWeight:600,display:"inline-block"}),
 };
 
-function ProgressBar({pct,color,height=4}){
-  return <div style={{height,background:C.border,borderRadius:height/2,overflow:"hidden"}}><div style={{height:"100%",width:`${pct}%`,background:color,boxShadow:`0 0 6px ${color}`,transition:"width 0.4s"}}/></div>;
-}
-function MenuCard({icon,title,sub,color,onClick,locked,children}){
-  return <div onClick={onClick} style={{...S.card(locked?C.border:color),cursor:locked?"not-allowed":"pointer",opacity:locked?0.7:1,display:"flex",alignItems:"flex-start",gap:14}}><div style={{fontSize:28,minWidth:36,textAlign:"center",paddingTop:2}}>{icon}</div><div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:locked?C.dim:color,marginBottom:4}}>{title}</div>{children||<div style={{fontSize:12,color:C.dim}}>{sub}</div>}</div>{!locked&&<div style={{color,fontSize:16,paddingTop:2}}>›</div>}</div>;
-}
-function BackBtn({onClick,color}){
-  return <button onClick={onClick} style={{...S.btn(color),padding:"7px 16px",fontSize:13,marginBottom:20}}>← Back</button>;
-}
 function buildDeck(domainId,save){
   const all=FLASHCARD_DOMAINS.flatMap(fd=>fd.cards.map(c=>({...c,deckColor:fd.color,deckName:fd.name,deckId:fd.id})));
   if(domainId==="all") return all;
@@ -197,14 +189,7 @@ function buildDeck(domainId,save){
   const fd=FLASHCARD_DOMAINS.find(f=>f.id===domainId);
   return fd?fd.cards.map(c=>({...c,deckColor:fd.color,deckName:fd.name,deckId:fd.id})):[];
 }
-function Celebration(){
-  const items=Array.from({length:28},(_,i)=>({left:`${(i*37+7)%100}%`,delay:`${((i*0.13)%0.9).toFixed(2)}s`,dur:`${(1.1+(i%5)*0.18).toFixed(2)}s`,color:[C.green,C.gold,C.d1,C.d3,C.purple,C.d2,C.d5][i%7],size:5+(i%5)}));
-  return(<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,pointerEvents:"none",zIndex:50,overflow:"hidden"}}><style>{`@keyframes floatUp{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(-110vh) rotate(720deg);opacity:0}}`}</style>{items.map((p,i)=>(<div key={i} style={{position:"absolute",top:"-10px",left:p.left,width:p.size,height:p.size,borderRadius:"50%",background:p.color,animation:`floatUp ${p.dur} ${p.delay} ease-in forwards`}}/>))}</div>);
-}
 
-function ThemeToggle({isDark,toggleTheme}){
-  return <button onClick={toggleTheme} title={isDark?"Light mode":"Dark mode"} style={{position:"fixed",bottom:20,right:20,width:42,height:42,borderRadius:21,border:"1px solid var(--c-border)",background:"var(--c-surface)",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"var(--c-shadow)",zIndex:999,transition:"all 0.2s"}}>{isDark?"☀️":"🌙"}</button>;
-}
 
 export default function App({onExit}){
   const {isDark,toggleTheme}=useTheme();
@@ -228,7 +213,7 @@ export default function App({onExit}){
     });
   },[]);
   async function updateSave(patch){const next={...save,...patch};setSave(next);await writeSave(next);}
-  const toggle=<ThemeToggle isDark={isDark} toggleTheme={toggleTheme}/>;
+  const toggle=<ThemeToggle isDark={isDark} toggleTheme={toggleTheme} fixed/>;
   function content(){
     if(save===null) return <div style={{...S.app,display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:C.dim,fontSize:15}}>Loading...</div></div>;
     const dp=save.domainProgress||{};
