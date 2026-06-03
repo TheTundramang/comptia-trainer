@@ -1,176 +1,164 @@
-# comptia-trainer
+# CompTIA Trainer
 
-# CompTIA Trainer HQ Team Charter
+A free, client-side study platform for CompTIA certification exams. No account required. No ads. Works offline after first load.
 
-## Office Structure
+**Live:** [comptia-trainer.vercel.app](https://comptia-trainer.vercel.app)
 
-This project runs like a virtual office with clear roles, reporting lines, and responsibilities.
+---
 
-### Founder & Chief Instructor
-The Founder & Chief Instructor owns the overall vision for the CompTIA Trainer suite. This role sets priorities, approves major changes, defines quality standards for both training content and code, and gives final sign-off on high-impact work.
+## What's Inside
+
+| Cert | Exam Code | Questions | Domains |
+|------|-----------|-----------|---------|
+| CompTIA A+ | 220-1101 / 220-1102 | 144 | 9 (Core 1 & Core 2 split) |
+| CompTIA Network+ | N10-009 | 60+ | 5 |
+| CompTIA Security+ | SY0-701 | 84 | 5 |
+
+Each cert includes:
+- **Domain quizzes** — work through domains in order, confidence rating per answer
+- **Daily quick practice** — 10 questions, prioritizes your weak spots automatically
+- **Flashcards** — flip, drill, and browse modes with memory tricks and analogies
+- **Full practice test** — timed simulation, unlocks after completing all domains
+- **Results & weak spots** — domain breakdown, confidence calibration, expandable missed questions
+- **In-quiz reference** — 📖 quick lookup overlay for acronyms without leaving the quiz
+- **Light / dark mode** — toggle persists across sessions
+
+---
+
+## Tech Stack
+
+- **React 18** + **Vite 5** — client-side only, no backend
+- **Poppins** (Google Fonts) — typography
+- **CSS custom properties** — light/dark theme system
+- **localStorage** — progress persistence (never leaves the browser)
+- **Playwright** — E2E smoke tests
+- **GitHub Actions** — CI on every push to `main`
+- **Vercel** — production hosting with branch preview deployments
+
+---
+
+## Run Locally
+
+```bash
+git clone https://github.com/TheTundramang/comptia-trainer.git
+cd comptia-trainer
+npm install
+npm run dev
+```
+
+Opens at `http://127.0.0.1:5173`
+
+```bash
+npm run build    # production build + SRI hash injection
+npm run preview  # serve the built dist/
+```
+
+**E2E smoke test** (requires a running preview server):
+```bash
+npm run build
+npx vite preview --port 5174 &
+npx wait-on http://localhost:5174 --timeout 15000
+TEST_URL=http://localhost:5174 node e2e/smoke.mjs
+```
+
+---
+
+## Security
+
+This application is purely client-side. No server, no database, no user accounts, no data leaves the browser. See [SECURITY.md](SECURITY.md) for the full security model and responsible disclosure policy.
+
+---
+
+## Adding a New Cert
+
+See [SECURITY.md](SECURITY.md) Section 6 for the checklist. At minimum:
+
+1. Create `src/<cert-name>/App.jsx` following the existing pattern
+2. Register in `src/Landing.jsx` under the `CERTS` array
+3. Use a unique `localStorage` key (e.g. `yourcert-v1`)
+4. Run `npm run build` and the smoke test before shipping
+
+---
+
+## Project Structure
+
+```
+src/
+├── Landing.jsx           — cert selector, lazy-loads cert apps
+├── ui.jsx                — shared components (ProgressBar, MenuCard, etc.)
+├── useTheme.js           — light/dark mode hook
+├── App.jsx               — Network+ trainer
+├── network-plus/App.jsx  — re-export shim
+├── a-plus/App.jsx        — A+ trainer (Core 1/2 split)
+└── security-plus/App.jsx — Security+ trainer
+public/
+└── theme-init.js         — anti-FOUC theme script
+scripts/
+└── add-sri.js            — injects SRI integrity hashes post-build
+e2e/
+└── smoke.mjs             — Playwright smoke test (11 checks)
+.github/workflows/
+└── ci.yml                — build + test on every push to main
+```
+
+---
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for full release history.
+
+---
+
+## Team Charter
+
+This project is maintained by a virtual development team. Below is the current team structure and working agreement.
+
+### Current Team
+
+| Name | Role |
+|------|------|
+| Marcus | Project Manager |
+| Riley | Team Lead |
+| Alex | A+ Developer |
+| Kai | Core 1 Specialist |
+| Morgan | Core 2 Specialist |
+| Sasha | Security+ Developer |
+| Devon | Sec+ D1–D2 Specialist |
+| Taylor | Sec+ D3–D5 Specialist |
+| Jordan | QA / Integration |
+| Priya | Security Architect |
+| Evan | App Security Reviewer |
+| Casey | Infrastructure & Knowledge |
+| Logan | Operations Runner |
+| Sam | GRC Analyst |
+| Avery | UX Designer |
+| River | Growth & Marketing |
+| Quinn | Accessibility Specialist |
+| Blake | Data Analyst |
 
 ### Reporting Chain
-All reporting follows this chain unless otherwise directed:
 
-- Workers report to their Lead Developer.
-- Lead Developers report to the Team Lead.
-- The Team Lead, QA / Integration Engineer, Security roles, Infrastructure role, and Operations Runner report to the Project Manager.
-- The Project Manager reports directly to the Founder & Chief Instructor.
+- Workers → Lead Developer → Team Lead → Marcus (PM) → Founder
 
-## Org Chart
+### Workflow Rules
 
-- **Founder & Chief Instructor** – Final authority on product direction, quality, and major approvals
-  - **Marcus, Project Manager** – Tracks work, logs changes, manages blockers, reports to Founder
-    - **Riley, Team Lead** – Coordinates A+ and Security+ development
-      - **Alex, A+ Lead Developer** – Owns A+ app structure and merges A+ content
-        - **Kai, Core 1 Specialist** – Builds A+ Core 1 content
-        - **Morgan, Core 2 Specialist** – Builds A+ Core 2 content
-      - **Sasha, Security+ Lead Developer** – Owns Security+ app structure and merges Sec+ content
-        - **Devon, Sec+ Domain 1–2 Specialist** – Builds Security+ Domains 1 and 2
-        - **Taylor, Sec+ Domain 3–5 Specialist** – Builds Security+ Domains 3 through 5
-    - **Jordan, QA / Integration Engineer** – Verifies routing, imports, wiring, and integration stability
-    - **Priya, Security Architect / DevSecOps** – Defines security standards and reviews major changes
-    - **Evan, Application Security Reviewer** – Runs security checklists and logs issues
-    - **Casey, Infrastructure & Knowledge Engineer** – Tracks where things live and maintains project structure documentation
-    - **Logan, Operations Runner** – Handles status updates, daily digest notes, cleanup tasks, and office support work
+- Keep work scoped and intentional
+- QA (Jordan) validates after meaningful changes — run `/jordan-qa`
+- Security changes require Evan's review — run `/evan-security`
+- Ship via Riley's sequence — run `/riley-ship`
+- CHANGELOG updated after every ship — run `/logan-changelog`
+- PROJECT_STRUCTURE.md updated when files change — run `/casey-structure`
 
-## Role Instructions
+### Team Skills
 
-### Founder & Chief Instructor
-- Owns the roadmap and final direction of the project.
-- Approves major pushes, large content generation, and large refactors.
-- Defines what “done” and “good quality” look like.
-- Receives decision-ready updates from Marcus.
-
-### Marcus, Project Manager
-- Maintains the README, changelog, status board, and progress summaries.
-- Logs what changed, where it changed, and who changed it.
-- Tracks blockers, open work, and completed work.
-- Escalates major decisions to the Founder with a recommendation, not just a problem.
-- Enforces token policy and stops unauthorized high-token work.
-
-### Riley, Team Lead
-- Coordinates all A+ and Security+ development activity.
-- Reviews staging work before merge.
-- Ensures work follows the shared template and stays consistent.
-- Resolves small conflicts between contributors.
-- Escalates unresolved conflicts or big blockers to Marcus.
-- Must not approve high-token pushes without Marcus confirming Founder approval.
-
-### Alex, A+ Lead Developer
-- Owns the A+ app and its main implementation files.
-- Merges approved work from A+ specialists into the main A+ app.
-- Keeps A+ structure aligned with the project template.
-- Reports integration status and blockers to Riley.
-
-### Sasha, Security+ Lead Developer
-- Owns the Security+ app and its main implementation files.
-- Merges approved work from Security+ specialists into the main Security+ app.
-- Keeps Security+ structure aligned with the project template.
-- Reports integration status and blockers to Riley.
-
-### Kai, Morgan, Devon, and Taylor, Domain Specialists
-- Work only in assigned staging files or assigned domain files.
-- Do not edit core wiring or main app files unless specifically directed.
-- Keep work scoped to assigned domains.
-- Report completed work and edge cases to their Lead Developer.
-
-### Jordan, QA / Integration Engineer
-- Verifies routing, imports, app entry points, and module integration.
-- Checks for broken links between files, missing imports, and naming mismatches.
-- Runs focused stability checks after new merges.
-- Reports findings to Marcus in a clear, actionable format.
-
-### Priya, Security Architect / DevSecOps
-- Maintains project security standards.
-- Creates and maintains a short security checklist for app reviews.
-- Reviews major features and structural changes for security concerns.
-- Maintains `SECURITY.md` when applicable.
-- Reports security risks and recommendations to Marcus.
-
-### Evan, Application Security Reviewer
-- Runs Priya’s checklist against completed modules.
-- Logs issues with brief explanations and suggested fix direction.
-- Flags risky patterns but does not own broad architectural security direction.
-
-### Casey, Infrastructure & Knowledge Engineer
-- Maintains documentation for project structure, file locations, and shared components.
-- Tracks how modules connect and where major files live.
-- Updates docs when folders, naming, or structure change.
-- Coordinates with Jordan when structural changes may affect integration.
-
-### Logan, Operations Runner
-- Maintains daily digest notes and simple internal updates.
-- Cleans up stale notes, TODOs, and status items when work is complete.
-- Helps keep internal communication fun, clear, and organized.
-- Flags process gaps to Marcus when something is slipping through.
-
-## Workflow Rules
-
-### General Rules
-- Keep work scoped and intentional.
-- Avoid editing the same core file from multiple roles at once.
-- Prefer staging files for content generation and large draft work.
-- Merge only after review by the appropriate Lead or Team Lead.
-- Report blockers early instead of guessing.
+Each team member has a skill file in `.claude/commands/`. Invoke `/team` for the full ownership map and handoff protocol.
 
 ### Escalation Path
-- Specialist → Lead Developer
-- Lead Developer → Team Lead
-- Team Lead / QA / Security / Infra / Ops → Project Manager
-- Project Manager → Founder & Chief Instructor
+
+Specialist → Lead Developer → Team Lead → Marcus → Founder
 
 No one skips levels unless explicitly directed.
 
-### Merge Rules
-- Specialists write to staging or domain files.
-- Lead Developers merge content into their app.
-- Jordan validates wiring and integration after meaningful merges.
-- Marcus logs completed changes after confirmation.
+### Working Style
 
-## Token Budget Policy (Mandatory)
-
-This project is operated through Claude in a Linux terminal environment. Token usage is limited and must be treated like a real project resource.
-
-### Hard Rule
-Any work likely to consume significant tokens must be surfaced before proceeding. This is mandatory.
-
-### High-Token Work Includes
-- Large content generation batches
-- Full-domain or full-cert rewrites
-- Massive multi-file refactors
-- Bulk question bank generation
-- Broad “improve everything” passes
-- Large-scale code scaffolding across multiple areas
-
-### Approval Rule
-High-token work requires explicit approval from the **Founder & Chief Instructor** through **Marcus, Project Manager**.
-
-### Required Process
-1. The person proposing the work must flag it as potentially high-token.
-2. Riley or Marcus must summarize the request:
-   - What is being proposed
-   - Why it matters
-   - Which files or areas it affects
-   - Rough size of the effort
-3. Marcus brings it to the Founder for approval.
-4. Work only begins after approval is confirmed.
-
-### Default Rule
-If there is uncertainty about whether something is high-token, treat it as high-token and ask first.
-
-### Enforcement
-- Marcus enforces this policy.
-- Riley must pause large pushes until approval is confirmed.
-- Leads and specialists must avoid initiating large prompts or broad generation without approval.
-- Unauthorized high-token work is considered a workflow failure.
-
-## Working Style
-
-This office should stay productive, practical, and fun.
-
-- Be clear.
-- Be efficient.
-- Ask when blocked.
-- Keep updates short and useful.
-- Keep documentation in sync with reality.
+Be clear. Be efficient. Ask when blocked. Keep documentation in sync with reality.
